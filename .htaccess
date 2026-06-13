@@ -1,0 +1,42 @@
+<IfModule mod_headers.c>
+    Header set Cache-Control "private"
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
+
+# Imposta il gestore PHP 8.1
+AddHandler application/x-httpd-php81 .php .php5 .php4 .php3
+
+# Nasconde gli indici delle directory
+IndexIgnore *
+
+# Permessi di accesso
+Order deny,allow
+Allow from *
+
+RewriteEngine On
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI ATLETI ---- #
+RewriteRule ^atleti/([0-9]+)-([a-zA-Z0-9-]+)/?$ atleta.php?id=$1 [L,QSA]
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI SPORT ---- #
+RewriteRule ^sport/([a-zA-Z0-9-]+)/?$ sport.php?sport=$1 [L,QSA]
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI EVENTI ---- #
+RewriteRule ^evento/([a-zA-Z0-9-]+)/?$ evento.php?description=$1 [L,QSA]
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI FEDERAZIONI ---- #
+RewriteRule ^organizzazione/([a-zA-Z0-9-]+)/?$ organizzazione.php?description=$1 [L,QSA]
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI LUOGHI ---- #
+RewriteRule ^luogo/([a-zA-Z0-9-]+)/?$ luoghi.php?l=$1 [L,QSA]
+
+# ---- GESTIONE URL SEO-FRIENDLY PER GLI LUOGHI ---- #
+RewriteRule ^professione/([a-zA-Z0-9-]+)/?$ professione.php?p=$1 [L,QSA]
+
+# ---- REGOLE DI RISCRITTURA PREESISTENTI ---- #
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# ---- REINDIRIZZAMENTO 404 ALLA HOME ---- #
+ErrorDocument 404 /network/index.php

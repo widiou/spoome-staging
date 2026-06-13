@@ -1,0 +1,31 @@
+# === Spoome .gitignore ===
+# NOTA: vendor/ e node_modules/ restano TRACCIATI di proposito.
+# Sul server non c'è SSH/Composer/npm: le dipendenze vanno deployate via repo.
+
+# --- Segreti / ambiente ---
+.env
+.env.local
+.env.*.local
+
+# --- Log ---
+php_errorlog
+*.log
+/podio/debug.log
+
+# --- Cache applicativa (rigenerata a runtime) ---
+/helpers/cache/
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+# --- Immagini caricate dagli utenti (foto profilo atleti) ---
+/assets/profile/
+
+# --- IDE / OS ---
+/.idea/
+.DS_Store
+Thumbs.db
+
+# --- Build / temporanei ---
+*.tmp

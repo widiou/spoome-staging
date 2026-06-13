@@ -1,0 +1,15 @@
+{
+  "require": {
+    "guzzlehttp/guzzle": "^7.8",
+    "ext-gd": "*",
+    "ext-simplexml": "*",
+    "ext-libxml": "*",
+    "ext-pdo": "*",
+    "ext-http": "*",
+    "ext-curl": "*",
+    "ext-intl": "*",
+    "ext-mbstring": "*",
+    "ext-iconv": "*",
+    "ext-fileinfo": "*"
+  }
+}

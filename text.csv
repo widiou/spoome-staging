@@ -1,0 +1,42 @@
+Type,SKU,Name,Published,Short Description,Regular price,Categories,Parent,Attribute 1 name,Attribute 1 value,Attribute 1 visible,Attribute 1 global,Attribute 2 name,Attribute 2 value,Attribute 2 visible,Attribute 2 global
+variable,PS01-VAR,"Elemento Dritto L. 1000 - Mono Parete",1,"Elemento lineare L.1000mm per canne fumarie Mono Parete.",,"Mono Parete > Elementi Lineari",,Diametro,"80, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 250, 300, 350, 400, 450, 500",1,1,Materiale,"Inox 304, Inox 316",1,1
+variation,PS01-80-304,"Elemento Dritto L. 1000 - Ø80 Inox 304",1,,19.60,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,80,1,1,Materiale,Inox 304,1,1
+variation,PS01-80-316,"Elemento Dritto L. 1000 - Ø80 Inox 316",1,,26.60,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,80,1,1,Materiale,Inox 316,1,1
+variation,PS01-100-304,"Elemento Dritto L. 1000 - Ø100 Inox 304",1,,23.20,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,100,1,1,Materiale,Inox 304,1,1
+variation,PS01-100-316,"Elemento Dritto L. 1000 - Ø100 Inox 316",1,,30.60,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,100,1,1,Materiale,Inox 316,1,1
+variation,PS01-120-304,"Elemento Dritto L. 1000 - Ø120 Inox 304",1,,26.80,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,120,1,1,Materiale,Inox 304,1,1
+variation,PS01-120-316,"Elemento Dritto L. 1000 - Ø120 Inox 316",1,,35.30,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,120,1,1,Materiale,Inox 316,1,1
+variation,PS01-130-304,"Elemento Dritto L. 1000 - Ø130 Inox 304",1,,28.90,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,130,1,1,Materiale,Inox 304,1,1
+variation,PS01-130-316,"Elemento Dritto L. 1000 - Ø130 Inox 316",1,,41.60,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,130,1,1,Materiale,Inox 316,1,1
+variation,PS01-150-304,"Elemento Dritto L. 1000 - Ø150 Inox 304",1,,37.80,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,150,1,1,Materiale,Inox 304,1,1
+variation,PS01-150-316,"Elemento Dritto L. 1000 - Ø150 Inox 316",1,,45.80,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,150,1,1,Materiale,Inox 316,1,1
+variation,PS01-180-304,"Elemento Dritto L. 1000 - Ø180 Inox 304",1,,42.70,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,180,1,1,Materiale,Inox 304,1,1
+variation,PS01-180-316,"Elemento Dritto L. 1000 - Ø180 Inox 316",1,,52.30,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,180,1,1,Materiale,Inox 316,1,1
+variation,PS01-200-304,"Elemento Dritto L. 1000 - Ø200 Inox 304",1,,46.00,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,200,1,1,Materiale,Inox 304,1,1
+variation,PS01-200-316,"Elemento Dritto L. 1000 - Ø200 Inox 316",1,,55.20,"Mono Parete > Elementi Lineari",PS01-VAR,Diametro,200,1,1,Materiale,Inox 316,1,1
+variable,PD101-VAR,"Elemento Dritto L. 1000 - Doppia Parete",1,"Elemento lineare L.1000mm Doppia Parete coibentato.",,"Doppia Parete > Elementi Lineari",,Diametro Interno,"80, 100, 130, 150, 180, 200, 250, 300, 350, 400, 450, 500",1,1,Finitura Esterna,"Inox, Rame",1,1
+variation,PD101-80-INOX,"Elemento Dritto L. 1000 DP - Ø80 Inox",1,,91.70,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,80,1,1,Finitura Esterna,Inox,1,1
+variation,PD101-80-RAME,"Elemento Dritto L. 1000 DP - Ø80 Rame",1,,135.00,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,80,1,1,Finitura Esterna,Rame,1,1
+variation,PD101-100-INOX,"Elemento Dritto L. 1000 DP - Ø100 Inox",1,,98.80,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,100,1,1,Finitura Esterna,Inox,1,1
+variation,PD101-100-RAME,"Elemento Dritto L. 1000 DP - Ø100 Rame",1,,146.70,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,100,1,1,Finitura Esterna,Rame,1,1
+variation,PD101-130-INOX,"Elemento Dritto L. 1000 DP - Ø130 Inox",1,,119.00,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,130,1,1,Finitura Esterna,Inox,1,1
+variation,PD101-130-RAME,"Elemento Dritto L. 1000 DP - Ø130 Rame",1,,173.00,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,130,1,1,Finitura Esterna,Rame,1,1
+variation,PD101-150-INOX,"Elemento Dritto L. 1000 DP - Ø150 Inox",1,,129.80,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,150,1,1,Finitura Esterna,Inox,1,1
+variation,PD101-150-RAME,"Elemento Dritto L. 1000 DP - Ø150 Rame",1,,188.70,"Doppia Parete > Elementi Lineari",PD101-VAR,Diametro Interno,150,1,1,Finitura Esterna,Rame,1,1
+variable,PS05-VAR,"Curva 90° - Mono Parete",1,"Curva a 90 gradi per canne fumarie Mono Parete.",,"Mono Parete > Curve",,Diametro,"60, 80, 100, 110, 120, 130, 140, 150, 160, 180, 200, 220, 250, 300, 350, 400, 450, 500",1,1,Materiale,"Inox 304, Inox 316",1,1
+variation,PS05-80-304,"Curva 90° Mono - Ø80 Inox 304",1,,20.00,"Mono Parete > Curve",PS05-VAR,Diametro,80,1,1,Materiale,Inox 304,1,1
+variation,PS05-80-316,"Curva 90° Mono - Ø80 Inox 316",1,,24.00,"Mono Parete > Curve",PS05-VAR,Diametro,80,1,1,Materiale,Inox 316,1,1
+variation,PS05-100-304,"Curva 90° Mono - Ø100 Inox 304",1,,22.10,"Mono Parete > Curve",PS05-VAR,Diametro,100,1,1,Materiale,Inox 304,1,1
+variation,PS05-100-316,"Curva 90° Mono - Ø100 Inox 316",1,,25.80,"Mono Parete > Curve",PS05-VAR,Diametro,100,1,1,Materiale,Inox 316,1,1
+variable,PD111-VAR,"Raccordo T 90° - Doppia Parete",1,"Raccordo a T 90 gradi Doppia Parete.",,"Doppia Parete > Raccordi",,Diametro Interno,"80, 100, 130, 150, 180, 200, 250, 300, 350, 400, 450, 500",1,1,Finitura Esterna,"Inox, Rame",1,1
+variation,PD111-80-INOX,"Raccordo T 90° Doppia - Ø80 Inox",1,,128.00,"Doppia Parete > Raccordi",PD111-VAR,Diametro Interno,80,1,1,Finitura Esterna,Inox,1,1
+variation,PD111-80-RAME,"Raccordo T 90° Doppia - Ø80 Rame",1,,165.40,"Doppia Parete > Raccordi",PD111-VAR,Diametro Interno,80,1,1,Finitura Esterna,Rame,1,1
+variation,PD111-100-INOX,"Raccordo T 90° Doppia - Ø100 Inox",1,,140.00,"Doppia Parete > Raccordi",PD111-VAR,Diametro Interno,100,1,1,Finitura Esterna,Inox,1,1
+variation,PD111-100-RAME,"Raccordo T 90° Doppia - Ø100 Rame",1,,195.10,"Doppia Parete > Raccordi",PD111-VAR,Diametro Interno,100,1,1,Finitura Esterna,Rame,1,1
+variable,TCII01-VAR,"Elemento Dritto L. 1000 - Coassiale Ventilato",1,"Elemento lineare L.1000mm Coassiale Ventilato Inox.",,"Coassiale > Elementi Lineari",,Diametro,"80/130, 100/150, 130/200, 160/230",1,1,Materiale,Inox,1,1
+variation,TCII01-80,"Elemento Dritto L. 1000 Coassiale - Ø80/130",1,,82.00,"Coassiale > Elementi Lineari",TCII01-VAR,Diametro,80/130,1,1,Materiale,Inox,1,1
+variation,TCII01-100,"Elemento Dritto L. 1000 Coassiale - Ø100/150",1,,93.00,"Coassiale > Elementi Lineari",TCII01-VAR,Diametro,100/150,1,1,Materiale,Inox,1,1
+variable,PSN2001-VAR,"Elemento Dritto L. 1000 - Tubo Nero 2mm",1,"Tubo nero per stufe L.1000mm spessore 2mm.",,"Tubo Nero > 2mm",,Diametro,"120, 130, 140, 150, 160, 180, 200",1,1,Colore,Nero,1,1
+variation,PSN2001-120,"Elemento Dritto L. 1000 Nero 2mm - Ø120",1,,81.50,"Tubo Nero > 2mm",PSN2001-VAR,Diametro,120,1,1,Colore,Nero,1,1
+variation,PSN2001-130,"Elemento Dritto L. 1000 Nero 2mm - Ø130",1,,83.00,"Tubo Nero > 2mm",PSN2001-VAR,Diametro,130,1,1,Colore,Nero,1,1
+variation,PSN2001-150,"Elemento Dritto L. 1000 Nero 2mm - Ø150",1,,90.20,"Tubo Nero > 2mm",PSN2001-VAR,Diametro,150,1,1,Colore,Nero,1,1
