@@ -392,22 +392,21 @@ final class AthleteRepository
         }
         $fields['expire'] = \date('Y-m-d H:i:s', \strtotime('+5 days'));
 
-        $exist = $this->findByTitle($fields['title']);
-        if ($exist === null) {
+        // Esistenza per title (check leggero, senza side-effect foto di findByTitle).
+        $existingId = $this->idByTitle((string) $fields['title']);
+
+        if ($existingId === null) {
             $columns      = \implode(', ', \array_keys($fields));
             $placeholders = \implode(', ', \array_map(static fn($k) => ":$k", \array_keys($fields)));
-            $sql = "INSERT INTO athletes ($columns) VALUES ($placeholders)";
-        } else {
-            $fields['id'] = $athlete->getId();
-            $sets = \implode(', ', \array_map(static fn($k) => "$k = :$k", \array_keys($fields)));
-            $sql = "UPDATE athletes SET $sets WHERE id = :id";
-        }
-
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($fields);
-
-        if ($athlete->getId() === null) {
+            $this->pdo->prepare("INSERT INTO athletes ($columns) VALUES ($placeholders)")->execute($fields);
             $athlete->setId((int) $this->pdo->lastInsertId());
+        } else {
+            // NB: con EMULATE_PREPARES=false non si può riusare lo stesso named placeholder,
+            // quindi il WHERE usa :where_id (distinto) e l'id dell'atleta ESISTENTE.
+            $sets = \implode(', ', \array_map(static fn($k) => "$k = :$k", \array_keys($fields)));
+            $fields['where_id'] = $existingId;
+            $this->pdo->prepare("UPDATE athletes SET $sets WHERE id = :where_id")->execute($fields);
+            $athlete->setId($existingId);
         }
 
         // Foto: placeholder se mancante/non locale; altrimenti scarica e converte in WebP.
@@ -421,6 +420,15 @@ final class AthleteRepository
                 Logger::error('Salvataggio foto atleta fallito', ['id' => $athlete->getId(), 'err' => $e->getMessage()]);
             }
         }
+    }
+
+    /** Id dell'atleta con quel title, o null. Senza idratazione/foto. */
+    private function idByTitle(string $title): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM athletes WHERE title = :t LIMIT 1');
+        $stmt->execute(['t' => $title]);
+        $id = $stmt->fetchColumn();
+        return $id === false ? null : (int) $id;
     }
 
     /** Aggiorna bio e ne rinnova la scadenza (+5 giorni). */
