@@ -211,17 +211,7 @@ class Athlete
 
     public function updateBio(string $bio, int $id): void
     {
-        $newExpiring = date('Y-m-d H:i:s', strtotime('+5 days'));
-        $updateQuery = "UPDATE athletes SET bio = :bio, expire = :expire WHERE id = :id";
-        $stmt = $this->connection->prepare($updateQuery);
-        if (!$stmt->execute([
-            'bio' => $bio,
-            'expire' => $newExpiring,
-            'id' => $id])
-        ) {
-            error_log("Failed to update bio in database.");
-            throw new Exception("Failed to bio path in database.");
-        }
+        (new \Spoome\Athletes\AthleteRepository())->updateBio($bio, $id);
     }
 
     // === STATIC DELETE METHODS ===
@@ -425,47 +415,7 @@ class Athlete
 
     public static function insertInLog(string $query): void
     {
-        if (empty($query)) {
-            return; // Evitiamo di registrare ricerche vuote
-        }
-
-        $conn = Database::getInstance();
-        $pdo = $conn->getConnection();
-
-        $userIp = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
-
-        // Se il User-Agent contiene "bot", interrompiamo l'esecuzione
-        if (str_contains(strtolower($userAgent), 'bot')) {
-            return; // Non registriamo i bot
-        }
-
-        // Recuperiamo il referrer e l'URL attuale della pagina
-        $referrer = $_SERVER['HTTP_REFERER'] ?? null;
-        $referrerUrl = $referrer ?: ($_SERVER['REQUEST_URI'] ?? 'UNKNOWN');
-
-        $timestamp = (new DateTime())->format('Y-m-d H:i:s');
-        $userId = $_SESSION['user_id'] ?? null; // ID utente se disponibile
-
-        // Evitiamo di registrare IP specifici
-        if ($userIp == '188.8.28.17' or $userIp == '135.181.177.119') {
-            return;
-        }
-
-        $stmt = $pdo->prepare("
-        INSERT INTO search_log (query, user_ip, user_agent, referrer, referrer_url, search_time, user_id) 
-        VALUES (:query, :user_ip, :user_agent, :referrer, :referrer_url, :search_time, :user_id)
-    ");
-
-        $stmt->execute([
-            ':query' => $query,
-            ':user_ip' => $userIp,
-            ':user_agent' => $userAgent,
-            ':referrer' => $referrer,
-            ':referrer_url' => $referrerUrl,
-            ':search_time' => $timestamp,
-            ':user_id' => $userId
-        ]);
+        \Spoome\Services\SearchLog::record($query);
     }
 }
 

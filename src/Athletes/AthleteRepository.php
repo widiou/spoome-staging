@@ -380,6 +380,17 @@ final class AthleteRepository
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
+    /** Aggiorna bio e ne rinnova la scadenza (+5 giorni). */
+    public function updateBio(string $bio, int $id): void
+    {
+        $expire = \date('Y-m-d H:i:s', \strtotime('+5 days'));
+        $stmt = $this->pdo->prepare('UPDATE athletes SET bio = :bio, expire = :expire WHERE id = :id');
+        if (!$stmt->execute(['bio' => $bio, 'expire' => $expire, 'id' => $id])) {
+            \Spoome\Core\Logger::error('Aggiornamento bio fallito', ['id' => $id]);
+            throw new \RuntimeException('Aggiornamento bio fallito per atleta ' . $id);
+        }
+    }
+
     /** Colonne consentite per l'interpolazione sicura dei nomi (anti-SQLi). */
     private const COLUMNS = [
         'id', 'title', 'photo', 'name', 'surname', 'birthplace', 'birthdate',
