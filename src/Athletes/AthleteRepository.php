@@ -380,6 +380,49 @@ final class AthleteRepository
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
+    /**
+     * Inserisce o aggiorna l'atleta (match sul title). Aggiorna l'id sull'entità
+     * dopo l'INSERT e gestisce il salvataggio della foto.
+     */
+    public function save(\Athlete $athlete): void
+    {
+        $fields = $athlete->getFields();
+        if (empty($fields['title']) || empty($fields['sport'])) {
+            throw new \InvalidArgumentException("Dati insufficienti: 'title' e 'sport' sono obbligatori.");
+        }
+        $fields['expire'] = \date('Y-m-d H:i:s', \strtotime('+5 days'));
+
+        $exist = $this->findByTitle($fields['title']);
+        if ($exist === null) {
+            $columns      = \implode(', ', \array_keys($fields));
+            $placeholders = \implode(', ', \array_map(static fn($k) => ":$k", \array_keys($fields)));
+            $sql = "INSERT INTO athletes ($columns) VALUES ($placeholders)";
+        } else {
+            $fields['id'] = $athlete->getId();
+            $sets = \implode(', ', \array_map(static fn($k) => "$k = :$k", \array_keys($fields)));
+            $sql = "UPDATE athletes SET $sets WHERE id = :id";
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($fields);
+
+        if ($athlete->getId() === null) {
+            $athlete->setId((int) $this->pdo->lastInsertId());
+        }
+
+        // Foto: placeholder se mancante/non locale; altrimenti scarica e converte in WebP.
+        if (empty($athlete->photo) || !\str_contains((string) $athlete->photo, '/assets/profile')) {
+            $athlete->photo = \SQUARE_PLACEHOLDER;
+        }
+        if (!empty($athlete->photo) && $athlete->photo !== \SQUARE_PLACEHOLDER) {
+            try {
+                (new \Spoome\Services\AthleteImage($this->pdo))->store((string) $athlete->photo, (int) $athlete->getId());
+            } catch (\Throwable $e) {
+                Logger::error('Salvataggio foto atleta fallito', ['id' => $athlete->getId(), 'err' => $e->getMessage()]);
+            }
+        }
+    }
+
     /** Aggiorna bio e ne rinnova la scadenza (+5 giorni). */
     public function updateBio(string $bio, int $id): void
     {

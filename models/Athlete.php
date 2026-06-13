@@ -32,15 +32,8 @@ use GuzzleHttp\Exception\GuzzleException;
 class Athlete
 {
     // === PROPERTIES ===
-    private PDO $connection;
     private ?int $id = null;
     private array $fields = [];
-
-    // === CONSTRUCTOR ===
-    public function __construct()
-    {
-        $this->connection = Database::getInstance()->getConnection();
-    }
 
     // === MAGIC METHODS ===
     public function __get(string $name): mixed
@@ -73,140 +66,28 @@ class Athlete
         return $this;
     }
 
+    /** Tutti i campi dell'entità (usato dal repository per il save). */
+    public function getFields(): array
+    {
+        return $this->fields;
+    }
+
     // === SAVE METHODS ===
 
     /**
-     * @throws GuzzleException
      * @throws Exception
      */
     public function save(): void
     {
-
-        if (empty($this->fields['title']) || empty($this->fields['sport'])) {
-            throw new Exception("Dati insufficienti: 'title' e 'sport' sono obbligatori.");
-        }
-        $this->fields['expire'] = date('Y-m-d H:i:s', strtotime('+5 days'));
-        $columns = implode(", ", array_keys($this->fields));
-        $placeholders = implode(", ", array_map(fn($key) => ":$key", array_keys($this->fields)));
-        $exist = self::findByTitle($this->fields['title']);
-        if ($exist === null) {
-            $query = "INSERT INTO athletes ($columns) VALUES ($placeholders)";
-        } else {
-            $sets = implode(", ", array_map(fn($key) => "$key = :$key", array_keys($this->fields)));
-            $this->fields['id'] = $this->id;
-            $query = "UPDATE athletes SET $sets WHERE id = :id";
-        }
-        $stmt = $this->connection->prepare($query);
-        $stmt->execute($this->fields);
-        if ($this->id === null) {
-            $this->id = (int)$this->connection->lastInsertId();
-        }
-        if (empty($this->fields['photo']) || !str_contains($this->fields['photo'], "/assets/profile")) {
-            $this->fields['photo'] = SQUARE_PLACEHOLDER;
-        }
-        if (!empty($this->fields['photo']) && $this->fields['photo'] !== SQUARE_PLACEHOLDER) {
-            try {
-                $this->savePhotoToServer($this->fields['photo'], $this->id);
-            } catch (Exception $e) {
-                error_log("Errore durante il salvataggio della foto: " . $e->getMessage());
-            }
-        }
+        (new \Spoome\Athletes\AthleteRepository())->save($this);
     }
 
     /**
-     * @throws GuzzleException
      * @throws Exception
      */
     public function savePhotoToServer(string $photoUrl, int $id): void
     {
-        $subDir = substr($id, 0, 2);
-        $relativeDirectoryPath = SUB_ROOT . "/assets/profile/$subDir/$id";
-        $directoryPath = $_SERVER['DOCUMENT_ROOT'] . $relativeDirectoryPath;
-        $photoPath = "$directoryPath/$id.webp";
-        $relativePhotoPath = "$relativeDirectoryPath/$id.webp";
-        $absolutePhotoPath = $relativePhotoPath;
-
-        if (!is_dir($directoryPath)) {
-            if (!mkdir($directoryPath, 0755, true) && !is_dir($directoryPath)) {
-                error_log("Errore: impossibile creare la directory: $directoryPath");
-                return;
-            }
-        }
-
-        $client = new Client();
-        try {
-
-            $response = $client->get($photoUrl, [
-                "timeout" => 5,
-                "connect_timeout" => 5,
-            ]);
-            if ($response->getStatusCode() !== 200) {
-                return;
-            }
-
-            $imageContent = $response->getBody()->getContents();
-        } catch (Exception $e) {
-            return;
-        }
-
-        $sourceImage = imagecreatefromstring($imageContent);
-        if ($sourceImage === false) {
-            error_log("Errore nella creazione dell'immagine GD.");
-            return;
-        }
-
-        // Ridimensionamento
-        $maxWidth = 800;
-        $width = imagesx($sourceImage);
-        $height = imagesy($sourceImage);
-        $newWidth = ($width > $maxWidth) ? $maxWidth : $width;
-        $newHeight = intval(($height / $width) * $newWidth);
-
-        $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-        imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-        imagedestroy($sourceImage);
-
-        // Salva in formato WebP
-        if (!imagewebp($resizedImage, $photoPath, 80)) {
-            error_log("Errore nel salvataggio dell'immagine WebP.");
-        }
-        imagedestroy($resizedImage);
-
-        if (file_exists($photoPath)) {
-            $this->updatePhotoPath($absolutePhotoPath, $id);
-        } else {
-            error_log("Errore: il file WebP non è stato creato correttamente.");
-        }
-    }
-
-    /**
-     * @throws Exception
-     */
-    private function updatePhotoPath(string $photoPath, int $id): void
-    {
-        $photoPath = str_replace(SUB_ROOT, '', $photoPath);
-        $updateQuery = "UPDATE athletes SET photo = :photoPath WHERE id = :id";
-        $stmt = $this->connection->prepare($updateQuery);
-        if (!$stmt->execute(['photoPath' => $photoPath, 'id' => $id])) {
-            error_log("Failed to update photo path in database.");
-            throw new Exception("Failed to update photo path in database.");
-        }
-    }
-
-    private function isTitleUnique(string $title, ?int $id = null): bool
-    {
-        $query = "SELECT id FROM athletes WHERE title = :title";
-        $params = ['title' => $title];
-
-        if (!is_null($id)) {
-            $query .= " AND id != :id";
-            $params['id'] = $id;
-        }
-
-        $stmt = $this->connection->prepare($query);
-        $stmt->execute($params);
-
-        return $stmt->rowCount() === 0;
+        (new \Spoome\Services\AthleteImage())->store($photoUrl, $id);
     }
 
     public function updateBio(string $bio, int $id): void
