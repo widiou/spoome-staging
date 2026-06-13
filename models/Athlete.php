@@ -305,20 +305,7 @@ class Athlete
 
     public static function getAll(): array
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes ORDER BY id DESC";
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getAll();
     }
 
     public static function getLast24(): array
@@ -328,179 +315,22 @@ class Athlete
 
     public static function search(string $field, string $value): array
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes WHERE $field LIKE :value ORDER BY birthyear DESC LIMIT 25";
-        $stmt = $connection->prepare($query);
-        $stmt->execute(['value' => "%$value%"]);
-        $athletes = [];
-        while ($row = $stmt->fetch()) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->search($field, $value);
     }
 
     public static function getLastTen($sport = '', $place = '', $day = '', $activity = '', $page = null, $pageSize = 30): array
     {
-
-        if (str_contains($day, '1 ')) {
-            $day = str_replace('1 ', '1º ', trim($day));
-        }
-        $connection = Database::getInstance()->getConnection();
-        $excludePH = "https://spoome.it/agenzia/wp-content/uploads/2024/05/cropped-favicon-270x270.png";
-
-        $query = "SELECT * FROM athletes WHERE athletes.nationality like 'ital%' and athletes.surname != '' and athletes.photo != '' and athletes.photo != :excludePath and birthyear != ''";
-        $params = ['excludePath' => $excludePH];
-
-        if ($sport) {
-            if ($sport == 'Sport Invernali') {
-                $winterSportsDisciplines = [
-                    'Sci alpino', 'Sci nordico', 'Biathlon', 'Bob', 'Slittino', 'Skeleton',
-                    'Freestyle', 'Snowboard', 'Sci alpinismo', 'Sci d\'erba',
-                    'Sci di velocità', 'Carving', 'Slittino su pista naturale'
-                ];
-                $disciplinePlaceholders = [];
-                foreach ($winterSportsDisciplines as $index => $discipline) {
-                    $disciplinePlaceholders[] = ":discipline" . $index;
-                    $params['discipline' . $index] = $discipline;
-                }
-                // Aggiungi la condizione per cercare una delle discipline invernali
-                $query .= " AND athletes.sport IN (" . implode(", ", $disciplinePlaceholders) . ")";
-            } else {
-                $sport .= '%';
-                $query .= " and athletes.sport like :sport";
-                $params['sport'] = $sport;
-            }
-
-
-        } elseif ($place) {
-            $query .= " and athletes.birthplace = :place";
-            $params['place'] = $place;
-        } elseif ($day) {
-            $query .= " and athletes.birthdate like :day";
-            $params['day'] = $day;
-        } elseif ($activity) {
-            $query .= " and athletes.activity like :activity";
-            $params['activity'] = $activity;
-        }
-
-        $query .= " ORDER BY RAND() DESC";
-
-        if ($page !== null) {
-            $offset = ($page - 1) * $pageSize;
-            $query .= " LIMIT :offset, :pageSize";
-            $params['offset'] = $offset;
-            $params['pageSize'] = $pageSize;
-        } else {
-            $query .= " LIMIT 30";
-        }
-
-        $stmt = $connection->prepare($query);
-
-        // Bind parameters
-        foreach ($params as $key => &$val) {
-            if ($key == 'offset' || $key == 'pageSize') {
-                $stmt->bindParam($key, $val, PDO::PARAM_INT);
-            } else {
-                $stmt->bindParam($key, $val);
-            }
-        }
-
-        $stmt->execute();
-        $results = $stmt->fetchAll();
-
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row ?? '';
-            $athletes[] = $athlete;
-        }
-
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getLastTen($sport, $place, $day, $activity, $page, $pageSize);
     }
 
     public static function getRandom6($sport = '', $activity = ''): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($sport) {
-            if ($activity) {
-                $query = "
-    SELECT *
-    FROM athletes
-    WHERE athletes.photo != '' AND (activity = :activity OR sport = :sport)
-    ORDER BY
-        IF(activity = :orderActivity, 2, 1)
-    LIMIT 6
-";
-                $stmt = $connection->prepare($query);
-                $stmt->execute([
-                    "activity" => $activity,
-                    "sport" => $sport,
-                    "orderActivity" => $activity,
-                ]);
-            } else {
-                $sport = $sport . "%";
-                $query = "SELECT * FROM athletes where athletes.photo != '' and sport like :sport  ORDER BY birthyear DESC LIMIT 6";
-                $stmt = $connection->prepare($query);
-                $stmt->execute([
-                    "sport" => $sport,
-                ]);
-            }
-
-        } else {
-            $query = "SELECT * FROM athletes where athletes.photo != ''  ORDER BY birthyear DESC LIMIT 6";
-            $stmt = $connection->prepare($query);
-            $stmt->execute();
-        }
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getRandom6($sport, $activity);
     }
 
     public static function getAthletesByEvent($event = ''): array
     {
-
-        $connection = Database::getInstance()->getConnection();
-        if ($event) {
-            $event = '% ' . $event . ' %';
-            $query = "
-    SELECT *
-    FROM athletes
-    WHERE athletes.photo != '' and athletes.bio like :event
-    ORDER BY RAND()
-    LIMIT 6
-";
-            $stmt = $connection->prepare($query);
-            $stmt->execute([
-                "event" => $event,
-            ]);
-        } else {
-            $query = "SELECT * FROM athletes where athletes.photo != ''  ORDER BY birthyear DESC LIMIT 6";
-            $stmt = $connection->prepare($query);
-            $stmt->execute();
-        }
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getAthletesByEvent($event);
     }
 
     public static function getRandom(): ?Athlete
