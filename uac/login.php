@@ -24,10 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_tipo'] = $u->tipo;
 
             // Redireziona in base al completamento profilo
-            $redirect = '/network/index.php'; // default
+            $redirect = SUB_ROOT . '/index.php'; // default
 
             $tipo = $u->tipo;
-            $completamento = "/network/profilo/completa" . ucfirst($tipo) . ".php";
+            $completamento = SUB_ROOT . "/profilo/completa" . ucfirst($tipo) . ".php";
 
 
             // Da implementare nel modello: controlla se ha già completato il profilo

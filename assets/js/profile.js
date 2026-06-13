@@ -24,7 +24,7 @@ function setLazyLoading() {
                     if (lazyElement.dataset.src) {
                         lazyElement.onerror = function () {
                             this.onerror = null;
-                            this.src = '/network/assets/spoome-placeholder.webp';
+                            this.src = `${window.SPOOME_BASE}/assets/spoome-placeholder.webp`;
                         };
                         lazyElement.src = lazyElement.dataset.src;
                     }
@@ -36,7 +36,7 @@ function setLazyLoading() {
                             lazyElement.style.backgroundImage = `url('${lazyElement.dataset.bg}')`;
                         };
                         img.onerror = function () {
-                            lazyElement.style.backgroundImage = `url('/network/assets/spoome-placeholder-cover.webp')`;
+                            lazyElement.style.backgroundImage = `url('${window.SPOOME_BASE}/assets/spoome-placeholder-cover.webp')`;
                         };
                         img.src = lazyElement.dataset.bg;
                     }
@@ -69,7 +69,7 @@ async function trovaNomiCognomi(test) {
                     .replace(/\s+/g, '-')
                     .trim();
 
-                const link = `<a class="link-spoome fw-bolder" href="/network/atleti/${id}-${slug}">${nomeCognome}</a>`;
+                const link = `<a class="link-spoome fw-bolder" href="${window.SPOOME_BASE}/atleti/${id}-${slug}">${nomeCognome}</a>`;
                 return {nomeCognome, link};
             }
         } catch (error) {
@@ -90,7 +90,7 @@ async function trovaNomiCognomi(test) {
 // ✅ Verifica esistenza atleta via API
 async function checkAthleteExistence(nomeCognome) {
     try {
-        const response = await fetch(`/network/services/checkAthleteExistence.php?name=${encodeURIComponent(nomeCognome)}`);
+        const response = await fetch(`${window.SPOOME_BASE}/services/checkAthleteExistence.php?name=${encodeURIComponent(nomeCognome)}`);
         if (!response.ok) {
 
             return {exists: false};

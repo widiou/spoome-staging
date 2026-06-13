@@ -159,13 +159,13 @@ if (isset($obja) and $obja->title != '') {
             tabs.forEach(tab => {
                 document.getElementById(tab.id)?.addEventListener('click', () => {
                     if (!loadState[tab.type]) {
-                        fetchData(`/network/services/searchMedia.php?q=<?= urlencode($titleTerms) ?>&t=${tab.type}`, tab.container, tab.type);
+                        fetchData(`<?= SUB_ROOT ?>/services/searchMedia.php?q=<?= urlencode($titleTerms) ?>&t=${tab.type}`, tab.container, tab.type);
                         loadState[tab.type] = true;
                     }
                 });
             });
 
-            fetchData(`/network/services/searchMedia.php?q=<?= urlencode($titleTerms) ?>&t=news`, 'news-container', 'news');
+            fetchData(`<?= SUB_ROOT ?>/services/searchMedia.php?q=<?= urlencode($titleTerms) ?>&t=news`, 'news-container', 'news');
             loadState.news = true;
         });
     </script>

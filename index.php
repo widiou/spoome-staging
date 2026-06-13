@@ -6,7 +6,7 @@ if (isset($_GET['cerca']) && !empty(trim($_GET['cerca']))) {
     $athlete = Athlete::findByTitle($nomeAtleta);
     if ($athlete) {
         $slug = strtolower(str_replace(" ", "-", $athlete->title));
-        $redirectUrl = "/network/atleti/{$athlete->getId()}-{$slug}";
+        $redirectUrl = SUB_ROOT . "/atleti/{$athlete->getId()}-{$slug}";
         header("Location: $redirectUrl");
         exit;
     }

@@ -52,7 +52,7 @@ require_once 'layout/navbar.php';
                     <tr>
                         <td class="text-center"><?= $a->id ?></td>
                         <td class="text-center">
-                            <img class="img-fluid rounded-circle" src="/network/<?= $a->photo ?>"
+                            <img class="img-fluid rounded-circle" src="<?= SUB_ROOT ?>/<?= $a->photo ?>"
                                  style="width: 48px; height: 48px; object-fit: cover; object-position: top">
                         </td>
                         <th><a class="text-light text-decoration-none"

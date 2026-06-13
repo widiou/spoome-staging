@@ -37,7 +37,7 @@ if (!$token) {
 
             echo "<div class='container my-5 uac-container'>
                     <div class='alert alert-success'>Password aggiornata con successo!</div>
-                    <a href='/network/uac/login.php' class='btn btn-spoome'>Accedi ora</a>
+                    <a href='" . SUB_ROOT . "/uac/login.php' class='btn btn-spoome'>Accedi ora</a>
                   </div>";
             require_once 'layout/_footer.php';
             exit;

@@ -12,7 +12,7 @@ echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     $events = Event::getAll();
     foreach ($events as $ev) {
         $slug = strtolower(str_replace(" ", "-", $ev->description ?? ''));
-        $url = "https://www.spoome.it/network/evento/{$slug}";
+        $url = "https://www.spoome.it" . SUB_ROOT . "/evento/{$slug}";
         ?>
         <url>
             <loc><?= htmlspecialchars($url) ?></loc>
@@ -24,7 +24,7 @@ echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 
     foreach ($sports as $sport) {
         $slug = strtolower(str_replace(" ", "-", $sport['sport'] ?? ''));
-        $url = "https://www.spoome.it/network/sport/{$slug}";
+        $url = "https://www.spoome.it" . SUB_ROOT . "/sport/{$slug}";
         ?>
         <url>
             <loc><?= htmlspecialchars($url) ?></loc>
@@ -35,7 +35,7 @@ echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     }
     foreach ($athletes as $athlete) {
         $slug = strtolower(str_replace(" ", "-", $athlete->title ?? ''));
-        $url = "https://www.spoome.it/network/atleti/{$athlete->getid()}-{$slug}";
+        $url = "https://www.spoome.it" . SUB_ROOT . "/atleti/{$athlete->getid()}-{$slug}";
         ?>
         <url>
             <loc><?= htmlspecialchars($url) ?></loc>

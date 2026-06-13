@@ -19,7 +19,7 @@ if (!isset($_GET['token'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_tipo'] = $user['tipo'];
 
-        header("Location: /network/profilo/inizia.php");
+        header("Location: " . SUB_ROOT . "/profilo/inizia.php");
         exit;
 
     } else {
@@ -37,7 +37,7 @@ require_once 'layout/_header.php';
     <div class="alert alert-warning">
         <?= $messaggio ?>
     </div>
-    <a href="/network/uac/login.php" class="btn btn-outline-light btn-slanted mt-3">
+    <a href="<?= SUB_ROOT ?>/uac/login.php" class="btn btn-outline-light btn-slanted mt-3">
         <span class="btn-slanted-content">Vai al login</span>
     </a>
 </div>

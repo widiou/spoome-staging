@@ -110,7 +110,7 @@ class Athlete
     public function savePhotoToServer(string $photoUrl, int $id): void
     {
         $subDir = substr($id, 0, 2);
-        $relativeDirectoryPath = "/network/assets/profile/$subDir/$id";
+        $relativeDirectoryPath = SUB_ROOT . "/assets/profile/$subDir/$id";
         $directoryPath = $_SERVER['DOCUMENT_ROOT'] . $relativeDirectoryPath;
         $photoPath = "$directoryPath/$id.webp";
         $relativePhotoPath = "$relativeDirectoryPath/$id.webp";
@@ -174,7 +174,7 @@ class Athlete
      */
     private function updatePhotoPath(string $photoPath, int $id): void
     {
-        $photoPath = str_replace('/network', '', $photoPath);
+        $photoPath = str_replace(SUB_ROOT, '', $photoPath);
         $updateQuery = "UPDATE athletes SET photo = :photoPath WHERE id = :id";
         $stmt = $this->connection->prepare($updateQuery);
         if (!$stmt->execute(['photoPath' => $photoPath, 'id' => $id])) {

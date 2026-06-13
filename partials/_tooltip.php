@@ -40,7 +40,7 @@
             tooltip.style.display = 'block';
 
             const link = tooltip.querySelector('a');
-            link.href = 'https://www.spoome.it/network/index.php?cerca=' + selection.toString().trim(); // Cambia questo link secondo necessità
+            link.href = 'https://www.spoome.it<?= SUB_ROOT ?>/index.php?cerca=' + selection.toString().trim(); // Cambia questo link secondo necessità
             link.textContent = 'Cerca "' + selection.toString() + '"';
 
             document.addEventListener('click', hideTooltip);

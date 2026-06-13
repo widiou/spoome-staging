@@ -7,7 +7,7 @@ require_once 'layout/_header.php';
 
 // Verifica accesso
 if (!isset($_SESSION['user_id'], $_GET['tipo'])) {
-    header("Location: /network/uac/login.php");
+    header("Location: " . SUB_ROOT . "/uac/login.php");
     exit();
 }
 
@@ -62,7 +62,7 @@ $tipo = $_GET['tipo'];
             }
 
             echo "<div class='alert alert-success'>Profilo completato con successo!</div>";
-            echo "<a href='/network/profilo/dashboard.php' class='btn btn-spoome mt-3'>Vai alla dashboard</a>";
+            echo "<a href='" . SUB_ROOT . "/profilo/dashboard.php' class='btn btn-spoome mt-3'>Vai alla dashboard</a>";
             require_once 'layout/_footer.php';
             exit;
 

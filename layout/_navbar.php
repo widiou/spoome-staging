@@ -3,7 +3,7 @@ $nSports = Athlete::getTopTenSports();
 ?>
 <nav class="navbar navbar-expand-xxl navbar-dark fixed-top" style="background: var(--black)" id="navbarTop">
     <div class="container">
-        <a class="navbar-brand" href="https://www.spoome.it/network/" style="color: var(--light); font-weight: bold">
+        <a class="navbar-brand" href="https://www.spoome.it<?= SUB_ROOT ?>/" style="color: var(--light); font-weight: bold">
             <img class="img-fluid" style="max-width: 120px;"
                  src="<?= SUB_ROOT ?>/assets/logo.webp"
                  alt="<?= T_ALT_LOGO ?>">
@@ -15,7 +15,7 @@ $nSports = Athlete::getTopTenSports();
         <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav me-auto mb-2 mb-md-0">
                 <li class="nav-item">
-                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it/network">
+                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it<?= SUB_ROOT ?>">
                         <span>HOME</span>
                     </a>
                 </li>
@@ -26,12 +26,12 @@ $nSports = Athlete::getTopTenSports();
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it/network/organizzazioni">
+                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it<?= SUB_ROOT ?>/organizzazioni">
                         <span>ORGANIZZAZIONI</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it/network/eventi">
+                    <a class="nav-link nav-link-spoome" href="https://www.spoome.it<?= SUB_ROOT ?>/eventi">
                         <span>EVENTI</span>
                     </a>
                 </li>
@@ -133,7 +133,7 @@ $nSports = Athlete::getTopTenSports();
                     ?>
                     <li class="list-group-item">
                         <a class="link-light text-decoration-none text-uppercase"
-                           href="/network/sport/<?= str_replace(' ', '-', $ls['sport']) ?>">
+                           href="<?= SUB_ROOT ?>/sport/<?= str_replace(' ', '-', $ls['sport']) ?>">
                             <?= $ls['sport'] ?> <span
                                     class="badge text-bg-light ms-2"><?= $ls['athlete_count'] ?></span>
                         </a>

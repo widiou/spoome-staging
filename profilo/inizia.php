@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'immagine_cover' => $pathCover
         ]);
 
-        header("Location: /network/profilo/dashboard.php");
+        header("Location: " . SUB_ROOT . "/profilo/dashboard.php");
         exit;
     } catch (Exception $e) {
         $error = "Errore durante il salvataggio: " . $e->getMessage();

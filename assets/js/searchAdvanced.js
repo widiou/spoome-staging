@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionItem.addEventListener('click', () => {
                     if (attr === 'atleti' && item.id) {
                         const slug = createSlug(item.text);
-                        window.location.href = `/network/atleti/${item.id}-${slug}`;
+                        window.location.href = `${window.SPOOME_BASE}/atleti/${item.id}-${slug}`;
                     } else {
                         input.value = item.text;
                     }

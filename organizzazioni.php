@@ -16,10 +16,10 @@ if(isset($_GET['type'])){
         <?= getTitle("Organizzazioni") ?>
         <div class="col-12">
             <nav class="nav nav-pills flex-column flex-sm-row">
-                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Federazione" ? $active_filter : ''?> me-3"  href="https://www.spoome.it/network/organizzazioni?type=Federazione">Federazioni</a>
-                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Comitato" ? $active_filter : ''?> me-3" href="https://www.spoome.it/network/organizzazioni?type=Comitato">Comitati</a>
-                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Gruppo Sportivo" ? $active_filter : ''?> me-3" href="https://www.spoome.it/network/organizzazioni?type=Gruppo Sportivo">Gruppi Sportivi</a>
-                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "PA" ? $active_filter : ''?> me-3" href="https://www.spoome.it/network/organizzazioni?type=PA">PA</a>
+                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Federazione" ? $active_filter : ''?> me-3"  href="https://www.spoome.it<?= SUB_ROOT ?>/organizzazioni?type=Federazione">Federazioni</a>
+                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Comitato" ? $active_filter : ''?> me-3" href="https://www.spoome.it<?= SUB_ROOT ?>/organizzazioni?type=Comitato">Comitati</a>
+                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "Gruppo Sportivo" ? $active_filter : ''?> me-3" href="https://www.spoome.it<?= SUB_ROOT ?>/organizzazioni?type=Gruppo Sportivo">Gruppi Sportivi</a>
+                <a class="flex-sm-fill text-sm-center nav-link <?= $type == "PA" ? $active_filter : ''?> me-3" href="https://www.spoome.it<?= SUB_ROOT ?>/organizzazioni?type=PA">PA</a>
             </nav>
         </div>
     </div>
@@ -34,7 +34,7 @@ if(isset($_GET['type'])){
             ?>
             <div class="col-6 col-md-2 g-2 my-2">
                 <div class="card text-bg-dark">
-                    <a href="/network/organizzazione/<?= $fedDescription ?>">
+                    <a href="<?= SUB_ROOT ?>/organizzazione/<?= $fedDescription ?>">
                         <img
                                 src="<?= $fed->photo ?>"
                                 class="card-img-top profile-photo-card-event"
@@ -42,7 +42,7 @@ if(isset($_GET['type'])){
                     </a>
                     <div class="card-body">
                         <div class="ps-2">
-                            <a href="/network/organizzazione/<?= $fedDescription ?>" class="link-light text-decoration-none">
+                            <a href="<?= SUB_ROOT ?>/organizzazione/<?= $fedDescription ?>" class="link-light text-decoration-none">
                                 <h6 class="card-title"><?= substr($fed->description,0, 45) ?></h6>
                             </a>
                             <div class="" style="color: var(--light); text-transform: uppercase">

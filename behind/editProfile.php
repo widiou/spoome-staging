@@ -39,7 +39,7 @@ if ($a) {
             <div class="d-flex">
                 <img class="rounded-circle me-5"
                      style="height: 80px; width: 80px; object-fit: cover; object-position: top;"
-                     src="/network/<?= $a->photo ?>">
+                     src="<?= SUB_ROOT ?>/<?= $a->photo ?>">
                 <h3>
                     <?= $a->getId() ?><br>
                     <a class="link-warning text-decoration-none"

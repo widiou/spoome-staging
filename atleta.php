@@ -3,7 +3,7 @@
 use GuzzleHttp\Exception\GuzzleException;
 
 require_once 'bootstrap.php';
-Athlete::insertInLog(str_replace('/network/atleti/', '', $_SERVER['REQUEST_URI']));
+Athlete::insertInLog(str_replace(SUB_ROOT . '/atleti/', '', $_SERVER['REQUEST_URI']));
 $title = "";
 $today = new DateTime();
 // Estrai ID dall’URL

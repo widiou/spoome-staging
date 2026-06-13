@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $u->setPasswordResetToken($user['id'], $token);
 
             // Link di reset completo con /network/
-            $resetLink = "https://spoome.it/network/uac/resetPassword.php?token=$token";
+            $resetLink = "https://spoome.it" . SUB_ROOT . "/uac/resetPassword.php?token=$token";
 
             // Email
             $subject = "Reset della tua password su Spoome";

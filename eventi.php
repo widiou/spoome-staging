@@ -15,7 +15,7 @@ $events = Event::getAll();
             ?>
             <div class="col-6 col-md-2 g-2 my-2">
                 <div class="card text-bg-dark">
-                    <a href="/network/evento/<?= $eventDescription ?>">
+                    <a href="<?= SUB_ROOT ?>/evento/<?= $eventDescription ?>">
                         <img
                              src="<?= $ev->photo ?>"
                              class="card-img-top profile-photo-card-event"
@@ -23,7 +23,7 @@ $events = Event::getAll();
                     </a>
                     <div class="card-body">
                         <div class="ps-2">
-                            <a href="/network/evento/<?= $eventDescription ?>" class="link-light text-decoration-none">
+                            <a href="<?= SUB_ROOT ?>/evento/<?= $eventDescription ?>" class="link-light text-decoration-none">
                                 <h6 class="card-title"><?= $ev->description ?></h6>
                             </a>
                             <div class="" style="color: var(--light); text-transform: uppercase">

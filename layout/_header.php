@@ -18,6 +18,11 @@ $current_page = basename($_SERVER['SCRIPT_NAME']);
         </script>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>
+          // Base path/URL dell'app (varia per ambiente: /network in prod, /beta in staging)
+          window.SPOOME_BASE = '<?= SUB_ROOT ?>';
+          window.SPOOME_URL  = '<?= rtrim(BASE_URL, "/") ?>';
+        </script>
         <?php
         if (isset($title)) {
             ?>

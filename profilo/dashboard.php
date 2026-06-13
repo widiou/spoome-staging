@@ -8,7 +8,7 @@ require_once __DIR__ . '/../models/User.php';
 
 // Verifica accesso
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /network/uac/login.php');
+    header('Location: ' . SUB_ROOT . '/uac/login.php');
     exit();
 }
 
@@ -71,13 +71,13 @@ $atleta = $stmt->fetch(PDO::FETCH_ASSOC);
         <?php endif; ?>
 
         <div class="mt-4 text-center">
-            <a href="/network/profilo/inizia.php" class="btn btn-outline-light btn-slanted me-2">
+            <a href="<?= SUB_ROOT ?>/profilo/inizia.php" class="btn btn-outline-light btn-slanted me-2">
                 <span class="btn-slanted-content">Modifica Profilo</span>
             </a>
-            <a href="/network/profilo/modifica.php" class="btn btn-outline-primary btn-slanted me-2">
+            <a href="<?= SUB_ROOT ?>/profilo/modifica.php" class="btn btn-outline-primary btn-slanted me-2">
                 <span class="btn-slanted-content">Modifica Atleta</span>
             </a>
-            <a href="/network/uac/logout.php" class="btn btn-danger btn-slanted">
+            <a href="<?= SUB_ROOT ?>/uac/logout.php" class="btn btn-danger btn-slanted">
                 <span class="btn-slanted-content">Esci</span>
             </a>
         </div>

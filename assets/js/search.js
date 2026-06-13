@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Chiamata database locale
     async function fetchAthleteFromDatabase(query) {
-        const url = `/network/services/searchAthlete.php?q=${encodeURIComponent(query)}`;
+        const url = `${window.SPOOME_BASE}/services/searchAthlete.php?q=${encodeURIComponent(query)}`;
         try {
             const response = await fetchWithTimeout(url, { timeout: 5000 });
             return await response.json();
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 suggestionsContainer.innerHTML = '';
                 if (pageid && !isNaN(pageid)) {
                     const slug = slugifyJS(text);
-                    window.location.href = `/network/atleti/${pageid}-${slug}`;
+                    window.location.href = `${window.SPOOME_BASE}/atleti/${pageid}-${slug}`;
                 } else {
                     await createAthlete(text);
                 }
@@ -129,7 +129,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Crea atleta se non esiste
     async function createAthlete(name) {
         try {
-            const response = await fetch(`/network/services/create-athlete.php?name=${encodeURIComponent(name)}`);
+            const response = await fetch(`${window.SPOOME_BASE}/services/create-athlete.php?name=${encodeURIComponent(name)}`);
             const result = await response.json();
             if (result.success) {
                 window.location.href = result.redirect;

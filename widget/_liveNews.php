@@ -68,7 +68,7 @@
                 });
         }
 
-        fetchData(`/network/services/searchMedia.php?q=olimpiadi&t=livenews`, 'livenews-container');
+        fetchData(`<?= SUB_ROOT ?>/services/searchMedia.php?q=olimpiadi&t=livenews`, 'livenews-container');
     });
 </script>
 

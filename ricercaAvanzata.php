@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 ?>
                 <div class="col-12 text-center  uac-container">
                     <H3>Per accedere a questa funzionalità devi registrarti a Spoome. <a class="link-spoome"
-                                                                                         href="/network/uac/register.php">Registrati
+                                                                                         href="<?= SUB_ROOT ?>/uac/register.php">Registrati
                             ora!</a></H3>
                 </div>
                 <?php

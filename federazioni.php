@@ -18,7 +18,7 @@ $federations = Organizations::getAll();
             ?>
             <div class="col-6 col-md-2 g-2 my-2">
                 <div class="card text-bg-dark">
-                    <a href="/network/federazione/<?= $fedDescription ?>">
+                    <a href="<?= SUB_ROOT ?>/federazione/<?= $fedDescription ?>">
                         <img
                                 src="<?= $fed->photo ?>"
                                 class="card-img-top profile-photo-card-event"
@@ -26,7 +26,7 @@ $federations = Organizations::getAll();
                     </a>
                     <div class="card-body">
                         <div class="ps-2">
-                            <a href="/network/federazione/<?= $fedDescription ?>" class="link-light text-decoration-none">
+                            <a href="<?= SUB_ROOT ?>/federazione/<?= $fedDescription ?>" class="link-light text-decoration-none">
                                 <h6 class="card-title"><?= $fed->description ?></h6>
                             </a>
                             <div class="" style="color: var(--light); text-transform: uppercase">

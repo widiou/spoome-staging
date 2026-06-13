@@ -35,13 +35,13 @@ if (array_key_exists('sport', $_GET)) {
                             <!-- Link per pagina precedente -->
                             <li class="page-item <?= $page == 1 ? 'disabled' : '' ?>">
                                 <a class="page-link link-spoome"
-                                   href="<?= $page > 1 ? '/network/sport/' . urlencode($sport) . '?page=' . ($page - 1) : '#' ?>">Indietro</a>
+                                   href="<?= $page > 1 ? SUB_ROOT . '/sport/' . urlencode($sport) . '?page=' . ($page - 1) : '#' ?>">Indietro</a>
                             </li>
 
                             <!-- Link per pagina successiva -->
                             <li class="page-item <?= $page >= $totPages ? 'disabled' : '' ?>">
                                 <a class="page-link link-spoome"
-                                   href="<?= $page < $totPages ? '/network/sport/' . urlencode($sport) . '?page=' . ($page + 1) : '#' ?>">Avanti</a>
+                                   href="<?= $page < $totPages ? SUB_ROOT . '/sport/' . urlencode($sport) . '?page=' . ($page + 1) : '#' ?>">Avanti</a>
                             </li>
                         </ul>
                     </nav>

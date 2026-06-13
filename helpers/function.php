@@ -156,12 +156,12 @@ function extractShortBio($fullBio): string
 function addMetaTags(string $title, int $athleteId, string $athleteSlug, string $imageUrl = ''): void
 {
     $athleteSlug = str_replace(" ", "-", $athleteSlug);
-    $imageUrl = "https://www.spoome.it/network" . $imageUrl;
+    $imageUrl = "https://www.spoome.it" . SUB_ROOT . "" . $imageUrl;
     $escapedTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
     $escapedDescription = htmlspecialchars("Scopri la carriera e i successi di " . $title . ": biografia, risultati, foto e video esclusivi. Segui gli aggiornamenti su Spoome", ENT_QUOTES, 'UTF-8');
-    $escapedUrl = "https://www.spoome.it/network/atleti/{$athleteId}-" . htmlspecialchars($athleteSlug, ENT_QUOTES, 'UTF-8');
+    $escapedUrl = "https://www.spoome.it" . SUB_ROOT . "/atleti/{$athleteId}-" . htmlspecialchars($athleteSlug, ENT_QUOTES, 'UTF-8');
 
-    $finalImageUrl = !empty($imageUrl) ? htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') : "https://www.spoome.it/network//assets/default-athlete.jpg";
+    $finalImageUrl = !empty($imageUrl) ? htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8') : "https://www.spoome.it" . SUB_ROOT . "/assets/default-athlete.jpg";
 
     echo "<meta name='description' content='$escapedDescription'>\r\n";
     echo "<meta name='robots' content='index, follow'>\r\n";
@@ -204,7 +204,7 @@ function addMetaTagsEvent(
     $eventSlug = str_replace(" ", "-", $eventSlug);
     $imageUrl = !empty($imageUrl)
         ? $imageUrl
-        : "https://www.spoome.it/network/assets/default-event.jpg";
+        : "https://www.spoome.it" . SUB_ROOT . "/assets/default-event.jpg";
 
     // Parte statica (per SEO generale)
     $baseTitle = "Spoome - Il punto di riferimento per lo sport";
@@ -213,7 +213,7 @@ function addMetaTagsEvent(
     // Parte dinamica (per evento specifico)
     $titleSEO = htmlspecialchars("$title | $baseTitle", ENT_QUOTES, 'UTF-8');
     $descriptionSEO = htmlspecialchars("$description $baseDescription", ENT_QUOTES, 'UTF-8');
-    $escapedUrl = "https://www.spoome.it/network/evento/" . htmlspecialchars($eventSlug, ENT_QUOTES, 'UTF-8');
+    $escapedUrl = "https://www.spoome.it" . SUB_ROOT . "/evento/" . htmlspecialchars($eventSlug, ENT_QUOTES, 'UTF-8');
 
     // ✅ Meta Tag SEO
     echo "<title>$titleSEO</title>\r\n";

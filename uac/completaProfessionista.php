@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         echo "<div class='container my-5'><div class='alert alert-success'>Modifiche salvate con successo!</div>";
-        echo "<a href='/network/profilo/dashboard.php' class='btn btn-spoome mt-3'>Torna alla dashboard</a></div>";
+        echo "<a href='" . SUB_ROOT . "/profilo/dashboard.php' class='btn btn-spoome mt-3'>Torna alla dashboard</a></div>";
         require_once 'layout/_footer.php';
         exit;
 

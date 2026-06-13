@@ -106,6 +106,6 @@ if (array_key_exists('description', $_GET)) {
         require_once 'layout/_footer.php';
 
     } else {
-        header("Location: /network/index.php");
+        header("Location: " . SUB_ROOT . "/index.php");
     }
 }

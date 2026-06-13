@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $checkNickname = $u->getUserByNickname($nickname);
 
     if ($checkUser) {
-        $message = 'Esiste già una registrazione con questa email!<br><a class="link-spoome text-decoration-none" href="/network/uac/login.php">Hai dimenticato la password?</a>';
+        $message = 'Esiste già una registrazione con questa email!<br><a class="link-spoome text-decoration-none" href="<?= SUB_ROOT ?>/uac/login.php">Hai dimenticato la password?</a>';
     } elseif ($checkNickname) {
         $message = 'Questo nickname è già stato scelto da un altro utente. Scegline un altro.';
     } elseif (!$u->isValidNickname($nickname)) {
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             // Generazione del link per la verifica dell'account
-            $link = "https://www.spoome.it/network/uac/verify.php?token=" . $newUser['verification_token'];
+            $link = "https://www.spoome.it" . SUB_ROOT . "/uac/verify.php?token=" . $newUser['verification_token'];
 
             $subject = "Conferma la tua registrazione su Spoome";
             $body = "Ciao {$newUser['name']},\n\nClicca su questo link per confermare la tua registrazione:\n$link\n\nGrazie,\nTeam Spoome";
@@ -218,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     return;
                 }
 
-                fetch(`/network/services/check_nickname.php?nickname=${encodeURIComponent(nickname)}`)
+                fetch(`<?= SUB_ROOT ?>/services/check_nickname.php?nickname=${encodeURIComponent(nickname)}`)
                     .then(res => res.json())
                     .then(data => {
                         feedback.textContent = data.message;

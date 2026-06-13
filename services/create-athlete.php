@@ -17,7 +17,7 @@ $athlete = getAthleteFromWikipedia($name);
 Athlete::insertInLog($name);
 if ($athlete) {
     $slug = strtolower(str_replace(" ", "-", $athlete->title));
-    $redirectUrl = "/network/atleti/{$athlete->getId()}-{$slug}";
+    $redirectUrl = SUB_ROOT . "/atleti/{$athlete->getId()}-{$slug}";
     echo json_encode(["success" => true, "redirect" => $redirectUrl]);
 } else {
     error_log("Atleta non trovato o errore nella creazione:" . $_GET['name'] ?? '');

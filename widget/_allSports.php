@@ -17,7 +17,7 @@ if ($sports) {
                                 ?>
                                 <div class="mb-2">
                                     <a class="text-decoration-none" style="color: var(--light)"
-                                       href="/network/sport/<?= toSanitize($s['sport']) ?>">
+                                       href="<?= SUB_ROOT ?>/sport/<?= toSanitize($s['sport']) ?>">
                                         <?= ucwords($s['sport']) ?>
                                     </a>
                                 </div>

@@ -47,7 +47,7 @@ $client = new PodioFormGenericClient($appId, $appToken);
 $formBuilder = new PodioFormBuilder($client);
 
 // ✅ Output del form
-echo $formBuilder->render($appId, '/network/podio/PodioSubmit.php', $appToken, $itemId);
+echo $formBuilder->render($appId, SUB_ROOT . '/podio/PodioSubmit.php', $appToken, $itemId);
 
 // ✅ Contenitore messaggi feedback
 echo "<div id='podio-feedback' class='mt-4'></div>";
