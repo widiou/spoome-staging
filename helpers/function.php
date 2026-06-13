@@ -17,7 +17,7 @@ function getWikipediaContent($page, $redirectCount = 0): array
 
     // ❌ Nessuna risposta ⇒ errore immediato
     if (!is_array($data) || empty($data['query']['pages'])) {
-        error_log("❌ Wikipedia: risposta vuota o invalida per '$page'");
+        \Spoome\Core\Logger::warning('Wikipedia: risposta vuota o invalida', ['page' => $page]);
         return [];
     }
 
@@ -30,7 +30,7 @@ function getWikipediaContent($page, $redirectCount = 0): array
         if ($correctTitle) {
             return getWikipediaContent($correctTitle, $redirectCount + 1);
         } else {
-            error_log("❌ Wikipedia: pagina non trovata né corretta per '$page'");
+            \Spoome\Core\Logger::warning('Wikipedia: pagina non trovata né corretta', ['page' => $page]);
             return [];
         }
     }
@@ -42,7 +42,7 @@ function getWikipediaContent($page, $redirectCount = 0): array
         $revisionContent = $pageData['revisions'][0]['*'];
         if (stripos($revisionContent, '#redirect') !== false) {
             if ($redirectCount >= $maxRedirects) {
-                error_log("🚫 Superato limite redirect ($maxRedirects) per '$page'");
+                \Spoome\Core\Logger::warning('Wikipedia: superato limite redirect', ['page' => $page, 'max' => $maxRedirects]);
                 return [];
             }
             if (preg_match('/\[\[([^\]]+)\]\]/', $revisionContent, $matches)) {
@@ -53,7 +53,7 @@ function getWikipediaContent($page, $redirectCount = 0): array
 
     // ❌ Pagina non trovata
     if (empty($pageData) || isset($pageData['missing'])) {
-        error_log("⚠️ Wikipedia: pagina non trovata per '$page' in lingua italiana.");
+        \Spoome\Core\Logger::warning('Wikipedia: pagina non trovata (lingua IT)', ['page' => $page]);
         return [];
     }
 

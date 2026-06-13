@@ -62,3 +62,6 @@ if (!function_exists('spoome_env_load')) {
 
 // Carica automaticamente il .env della root del progetto.
 spoome_env_load(dirname(__DIR__) . '/.env');
+
+// Registra l'autoloader PSR-4 per il namespace Spoome\ (src/).
+require_once dirname(__DIR__) . '/src/autoload.php';
