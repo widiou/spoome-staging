@@ -39,43 +39,19 @@ function httpGetJson(string $url, int $timeout = 4): ?array
 }
 
 /**
- * Centralised cache loader.
+ * Cache loader — delega a Spoome\Services\Cache (mantenuta per retrocompatibilità).
  */
 function loadCache(string $cacheFile): ?array
 {
-    if (!file_exists($cacheFile)) {
-        return null;
-    }
-
-    $content = json_decode(file_get_contents($cacheFile), true);
-    if (!is_array($content) || !isset($content['updated'], $content['data'])) {
-        return null; // corrupted cache ⇒ ignore
-    }
-
-    $updated   = new DateTime($content['updated']);
-    $now       = new DateTime();
-    $diffHours = ($now->getTimestamp() - $updated->getTimestamp()) / 3600;
-
-    return ($diffHours < CACHE_TTL_HOURS) ? $content['data'] : null;
+    return \Spoome\Services\Cache::get($cacheFile, CACHE_TTL_HOURS);
 }
 
 /**
- * Centralised cache writer (atomic).
+ * Cache writer (atomica) — delega a Spoome\Services\Cache.
  */
 function saveCache(string $cacheFile, array $data): void
 {
-    $cacheDir = dirname($cacheFile);
-    if (!is_dir($cacheDir)) {
-        mkdir($cacheDir, 0775, true);
-    }
-
-    $tmpFile = $cacheFile . '.tmp';
-    file_put_contents($tmpFile, json_encode([
-        'updated' => date('Y-m-d H:i:s'),
-        'data'    => $data,
-    ], JSON_PRETTY_PRINT));
-
-    rename($tmpFile, $cacheFile); // Atomic replace
+    \Spoome\Services\Cache::put($cacheFile, $data);
 }
 
 /**
