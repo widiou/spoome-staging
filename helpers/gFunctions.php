@@ -22,20 +22,7 @@ const VIDEO_CX = 'd79f0cafd0e9c4534';
  */
 function httpGetJson(string $url, int $timeout = 4): ?array
 {
-    $context = stream_context_create([
-        'http' => [
-            'timeout' => $timeout,
-            'header'  => "Accept-Language: it-IT\r\n",
-        ],
-    ]);
-
-    $raw = @file_get_contents($url, false, $context);
-    if ($raw === false) {
-        return null;
-    }
-    $data = json_decode($raw, true);
-
-    return is_array($data) ? $data : null;
+    return \Spoome\Services\GoogleSearch::http($url, $timeout);
 }
 
 /**
@@ -98,17 +85,7 @@ function normaliseDate(?string $str): string
  */
 function buildGoogleParams(string $query, string $cx, array $overrides = []): array
 {
-    $default = [
-        'q'    => $query,
-        'cx'   => $cx,
-        'key'  => GOOGLE_API_KEY,
-        'num'  => 8,
-        'lr'   => 'lang_it',
-        'safe' => 'high',
-        'sort' => 'date'
-
-    ];
-    return array_merge($default, $overrides);
+    return \Spoome\Services\GoogleSearch::params($query, $cx, $overrides);
 }
 
 // -----------------------------------------------------------------------------
@@ -117,62 +94,7 @@ function buildGoogleParams(string $query, string $cx, array $overrides = []): ar
 
 function searchGoogle(string $query, array $params): array|string
 {
-    $errorMsg = "<p style='color: var(--gray)'>Nessun post trovato.</p>";
-
-    // Ensure the query inside $params is aligned (caller may not include it)
-    $params['q'] = $query;
-
-    $url      = 'https://www.googleapis.com/customsearch/v1?' . http_build_query($params);
-    $data     = httpGetJson($url);
-
-    if (!$data || !isset($data['items'])) {
-        return $errorMsg;
-    }
-
-    $results       = [];
-    $titleRegistry = [];
-
-    foreach ($data['items'] as $item) {
-        $title   = truncateText($item['title'] ?? '', 250);
-        $snippet = truncateText($item['snippet'] ?? '', 150);
-
-        // Normalise & deduplicate titles (case‑insensitive)
-        $titleKey = mb_strtolower($title, 'UTF-8');
-        if (isset($titleRegistry[$titleKey])) {
-            continue; // duplicate ⇒ skip
-        }
-        $titleRegistry[$titleKey] = true;
-
-        // ---------------- Date extraction (3‑level fallback) ----------------
-        $metaDate     = $item['pagemap']['metatags'][0]['article:published_time']
-            ?? $item['pagemap']['metatags'][0]['article:modified_time']
-            ?? $item['pagemap']['metatags'][0]['last-modified']
-            ?? '';
-
-        $snippetDate  = extractDateFromSnippet($snippet);
-        $urlDate      = extractDateFromUrl($item['link'] ?? '') ?? '';
-        $finalDate    = normaliseDate($metaDate ?: $snippetDate ?: $urlDate);
-
-        $results[] = [
-            'title'    => $title,
-            'link'     => $item['link'] ?? '',
-            'snippet'  => $snippet,
-            'thumb'    => $item['pagemap']['cse_thumbnail'][0]['src']
-                ?? "https://www.spoome.it/" . SQUARE_PLACEHOLDER,
-            'datepost' => $finalDate,
-            'newsdate' => formatDateNews($finalDate),
-            'source'   => str_replace('www.', '', $item['displayLink'] ?? ''),
-            'icon'     => getIcon($item['displayLink'] ?? ''),
-            'isEmpty'  => false,
-        ];
-    }
-
-    // Sort by date (DESC). Empty dates go last.
-    usort($results, static function ($a, $b) {
-        return new DateTime($b['datepost'] ?: '1970-01-01') <=> new DateTime($a['datepost'] ?: '1970-01-01');
-    });
-
-    return $results;
+    return \Spoome\Services\GoogleSearch::search($query, $params);
 }
 
 // -----------------------------------------------------------------------------
