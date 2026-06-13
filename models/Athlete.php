@@ -63,6 +63,16 @@ class Athlete
         $this->id = $id;
     }
 
+    /**
+     * Popola l'entità da una riga DB (id + campi). Usato dal repository.
+     */
+    public function hydrate(array $row): static
+    {
+        $this->id = isset($row['id']) ? (int) $row['id'] : null;
+        $this->fields = $row;
+        return $this;
+    }
+
     // === SAVE METHODS ===
 
     /**
@@ -285,60 +295,12 @@ class Athlete
 
     public static function findById(string $id): ?Athlete
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes WHERE athletes.id = :id LIMIT 1";
-        $stmt = $connection->prepare($query);
-        $stmt->execute(['id' => $id]);
-        $result = $stmt->fetch();
-        if ($result) {
-            $athlete = new Athlete();
-            $athlete->id = $result['id'];
-            $athlete->fields = $result;
-            if (str_contains($athlete->photo, 'wikimedia.org')) {
-                try {
-                    $athlete->savePhotoToServer($athlete->photo, $athlete->id);
-                } catch (Exception $e) {
-                    error_log("Errore durante l'aggiornamento della foto di $id. Dettagli errore: " . $e->getMessage());
-                    return null;
-                } catch (GuzzleException $e) {
-                    error_log("Errore durante l'aggiornamento della foto di $id. Dettagli errore: " . $e->getMessage());
-                    return null;
-                }
-
-            }
-
-            return $athlete;
-        }
-        return null;
+        return (new \Spoome\Athletes\AthleteRepository())->findById($id);
     }
 
     public static function findByTitle(string $title): ?Athlete
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes WHERE athletes.title = :title LIMIT 1";
-        $stmt = $connection->prepare($query);
-        $stmt->execute(['title' => $title]);
-        $result = $stmt->fetch();
-        if ($result) {
-            $athlete = new Athlete();
-            $athlete->id = $result['id'];
-            $athlete->fields = $result;
-            if (str_contains($athlete->photo, 'wikimedia.org')) {
-                try {
-                    $athlete->savePhotoToServer($athlete->photo, $athlete->id);
-                } catch (Exception $e) {
-                    error_log("Errore durante l'aggiornamento della foto di $title. Dettagli errore: " . $e->getMessage());
-                    return null;
-                } catch (GuzzleException $e) {
-                    error_log("Errore durante l'aggiornamento della foto di $title. Dettagli errore: " . $e->getMessage());
-                    return null;
-                }
-
-            }
-
-            return $athlete;
-        }
-        return null;
+        return (new \Spoome\Athletes\AthleteRepository())->findByTitle($title);
     }
 
     public static function getAll(): array
