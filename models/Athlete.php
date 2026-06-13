@@ -345,55 +345,12 @@ class Athlete
 
     public static function fetchAthleteFromDatabase($value, $per_page = 20, $page = 1): false|array
     {
-        if ($value) {
-            $connection = Database::getInstance()->getConnection();
-            if ($page == 0) {
-                $offset = 0;
-
-            }
-
-            $query = "SELECT id, title, photo, sport FROM athletes WHERE title LIKE :value LIMIT :limit OFFSET :offset;";
-            $stmt = $connection->prepare($query);
-            $likeValue = "%$value%";
-            $stmt->bindParam(':value', $likeValue);
-            $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } else {
-            return false;
-        }
+        return (new \Spoome\Athletes\AthleteRepository())->fetchAthleteFromDatabase($value, $per_page, $page);
     }
 
     public static function simpleSearchByAttribute($property, $value, $per_page = 20, $page = 1): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($page == 0) {
-            $offset = 0;
-        } else {
-            $offset = ($page) * $per_page;
-        }
-        if ($property == 'birthdate') {
-            $query = "SELECT id, title, photo, name, surname, birthplace, 
-       birthdate, birthyear, activity, nationality, sport 
-FROM athletes 
-WHERE $property = '$value'
-LIMIT :limit OFFSET :offset;
-";
-        } else {
-            $query = "SELECT id, title, photo, name, surname, birthplace, 
-       birthdate, birthyear, activity, nationality, sport 
-FROM athletes 
-WHERE $property LIKE '%$value%'
-LIMIT :limit OFFSET :offset;
-";
-        }
-
-        $stmt = $connection->prepare($query);
-        $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->simpleSearchByAttribute($property, $value, $per_page, $page);
     }
 
     public static function getAllPlaces($per_page = 20, $page = 1, $query = ''): array
@@ -423,79 +380,37 @@ LIMIT :limit OFFSET :offset;
 
     public static function getAthletesByProperty($property, $value): array
     {
-        if (!$value) {
-            return [];
-        }
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes where athletes.photo != '' and $property like :value ORDER BY birthyear desc LIMIT 48";
-        $stmt = $connection->prepare($query);
-        $stmt->execute(['value' => "%" . $value . "%"]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getAthletesByProperty($property, $value);
     }
 
     public static function getTotAthletes($property = '', $value = '')
     {
-        $totAthletes = 0;
-        $connection = Database::getInstance()->getConnection();
-        if ($property == '') {
-            $query = "SELECT count(*) as totAthletes FROM athletes";
-            $stmt = $connection->prepare($query);
-            $stmt->execute();
-        } else {
-            $query = "SELECT count(*) as totAthletes FROM athletes where $property = :value";
-            $stmt = $connection->prepare($query);
-            $stmt->execute(['value' => $value ?? '']);
-        }
-
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        if ($results) {
-            $totAthletes = $results[0]['totAthletes'];
-        }
-
-        return $totAthletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getTotAthletes($property, $value);
     }
 
     public static function searchSport($term)
     {
-        return self::searchAttribute('sport', $term);
-    }
-
-    private static function searchAttribute($attribute, $term)
-    {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT DISTINCT $attribute FROM athletes WHERE $attribute LIKE :term LIMIT 10";
-        $stmt = $connection->prepare($query);
-        $stmt->execute(['term' => '%' . $term . '%']);
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        return (new \Spoome\Athletes\AthleteRepository())->searchAttribute('sport', $term);
     }
 
     public static function searchActivity($term)
     {
-        return self::searchAttribute('activity', $term);
+        return (new \Spoome\Athletes\AthleteRepository())->searchAttribute('activity', $term);
     }
 
     public static function searchYear($term)
     {
-        return self::searchAttribute('birthyear', $term);
+        return (new \Spoome\Athletes\AthleteRepository())->searchAttribute('birthyear', $term);
     }
 
     public static function searchNationality($term)
     {
-        return self::searchAttribute('nationality', $term);
+        return (new \Spoome\Athletes\AthleteRepository())->searchAttribute('nationality', $term);
     }
 
     public static function searchBirthplace($term)
     {
-        return self::searchAttribute('birthplace', $term);
+        return (new \Spoome\Athletes\AthleteRepository())->searchAttribute('birthplace', $term);
     }
 
     public static function advancedSearch($title = '', $sport = '', $activity = '', $nationality = '', $birthplace = '', $year = '', $sex = '')
@@ -505,17 +420,7 @@ LIMIT :limit OFFSET :offset;
 
     public static function searchByName(string $term, int $limit = 10): array
     {
-        $connection = Database::getInstance()->getConnection();
-
-        $query = "SELECT id, title FROM athletes WHERE title LIKE :term ORDER BY title ASC LIMIT :limit";
-        $stmt = $connection->prepare($query);
-
-        $likeTerm = "%$term%";
-        $stmt->bindParam(':term', $likeTerm, PDO::PARAM_STR);
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->searchByName($term, $limit);
     }
 
     public static function insertInLog(string $query): void

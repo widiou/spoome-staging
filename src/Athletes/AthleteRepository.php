@@ -287,6 +287,112 @@ final class AthleteRepository
         return $this->hydrateAll($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** Ricerca per titolo (campi ridotti). Comportamento legacy: offset di fatto 0. */
+    public function fetchAthleteFromDatabase($value, int $per_page = 20, int $page = 1): false|array
+    {
+        if (!$value) {
+            return false;
+        }
+        $offset = 0;
+        $stmt = $this->pdo->prepare('SELECT id, title, photo, sport FROM athletes WHERE title LIKE :value LIMIT :limit OFFSET :offset');
+        $like = '%' . $value . '%';
+        $stmt->bindParam(':value', $like);
+        $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Ricerca per colonna whitelisted (= per birthdate, LIKE altrimenti). Valore bound. */
+    public function simpleSearchByAttribute(string $property, $value, int $per_page = 20, int $page = 1): array
+    {
+        $col = $this->column($property);
+        if ($col === null) {
+            return [];
+        }
+        $offset = $page == 0 ? 0 : ($page) * $per_page;
+        $fields = 'id, title, photo, name, surname, birthplace, birthdate, birthyear, activity, nationality, sport';
+        if ($col === 'birthdate') {
+            $sql = "SELECT $fields FROM athletes WHERE $col = :value LIMIT :limit OFFSET :offset";
+            $val = $value;
+        } else {
+            $sql = "SELECT $fields FROM athletes WHERE $col LIKE :value LIMIT :limit OFFSET :offset";
+            $val = '%' . $value . '%';
+        }
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindParam(':value', $val);
+        $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Atleti con foto per colonna whitelisted LIKE valore. @return \Athlete[] */
+    public function getAthletesByProperty(string $property, $value): array
+    {
+        $col = $this->column($property);
+        if (!$value || $col === null) {
+            return [];
+        }
+        $stmt = $this->pdo->prepare("SELECT * FROM athletes WHERE athletes.photo != '' AND $col LIKE :value ORDER BY birthyear desc LIMIT 48");
+        $stmt->execute(['value' => '%' . $value . '%']);
+        return $this->hydrateAll($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** Conteggio atleti, opzionalmente filtrato per colonna whitelisted = valore. */
+    public function getTotAthletes(string $property = '', $value = ''): int
+    {
+        if ($property === '') {
+            $stmt = $this->pdo->prepare('SELECT count(*) as totAthletes FROM athletes');
+            $stmt->execute();
+        } else {
+            $col = $this->column($property);
+            if ($col === null) {
+                return 0;
+            }
+            $stmt = $this->pdo->prepare("SELECT count(*) as totAthletes FROM athletes WHERE $col = :value");
+            $stmt->execute(['value' => $value]);
+        }
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int) ($row['totAthletes'] ?? 0);
+    }
+
+    /** Autocomplete nomi: [id, title]. */
+    public function searchByName(string $term, int $limit = 10): array
+    {
+        $stmt = $this->pdo->prepare('SELECT id, title FROM athletes WHERE title LIKE :term ORDER BY title ASC LIMIT :limit');
+        $like = '%' . $term . '%';
+        $stmt->bindParam(':term', $like, PDO::PARAM_STR);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Autocomplete: valori distinti di una colonna whitelisted. */
+    public function searchAttribute(string $attribute, string $term): array
+    {
+        $col = $this->column($attribute);
+        if ($col === null) {
+            return [];
+        }
+        $stmt = $this->pdo->prepare("SELECT DISTINCT $col FROM athletes WHERE $col LIKE :term LIMIT 10");
+        $stmt->execute(['term' => '%' . $term . '%']);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    /** Colonne consentite per l'interpolazione sicura dei nomi (anti-SQLi). */
+    private const COLUMNS = [
+        'id', 'title', 'photo', 'name', 'surname', 'birthplace', 'birthdate',
+        'birthyear', 'activity', 'nationality', 'bio', 'sport', 'sex',
+        'instagram', 'facebook', 'twitter', 'linkedin', 'website', 'query',
+        'latitude', 'longitude', 'expire',
+    ];
+
+    private function column(string $name): ?string
+    {
+        return \in_array($name, self::COLUMNS, true) ? $name : null;
+    }
+
     /** @return \Athlete[] */
     private function hydrateAll(array $rows): array
     {
