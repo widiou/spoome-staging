@@ -206,6 +206,87 @@ final class AthleteRepository
         return $this->hydrateAll($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** Luoghi di nascita distinti con conteggio (filtri ricerca). */
+    public function getAllPlaces($per_page = 20, $page = 1, $query = ''): array
+    {
+        $offset = $page == 0 ? 0 : ($page) * $per_page;
+        $stmt = $this->pdo->prepare("SELECT DISTINCT birthplace as place, COUNT(*) as total FROM athletes WHERE trim(birthplace) != '' AND trim(birthplace) LIKE :q GROUP BY birthplace ORDER BY total desc LIMIT :limit OFFSET :offset");
+        $like = '%' . $query . '%';
+        $stmt->bindParam(':q', $like);
+        $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Sport con conteggio. $type: ''=top20, 'ALL'=paginati, 'MENU'=>20 atleti. */
+    public function getAllSports($type = '', $per_page = 20, $page = 1): array
+    {
+        if ($type === 'ALL') {
+            $offset = $page == 0 ? 0 : ($page) * $per_page;
+            $stmt = $this->pdo->prepare("SELECT sport, COUNT(*) as athlete_count FROM athletes WHERE athletes.sport IS NOT NULL GROUP BY sport ORDER BY athlete_count desc LIMIT :limit OFFSET :offset");
+            $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+        } elseif ($type === 'MENU') {
+            $stmt = $this->pdo->prepare("SELECT sport, COUNT(*) as athlete_count FROM athletes WHERE athletes.sport IS NOT NULL GROUP BY sport HAVING COUNT(*) > 20 ORDER BY athlete_count DESC");
+            $stmt->execute();
+        } else {
+            $stmt = $this->pdo->prepare("SELECT sport, COUNT(*) as athlete_count FROM athletes WHERE athletes.sport IS NOT NULL GROUP BY sport ORDER BY athlete_count DESC LIMIT 20");
+            $stmt->execute();
+        }
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getAllActivities($type = ''): array
+    {
+        $sql = $type === 'ALL'
+            ? "SELECT activity, COUNT(*) as athlete_count FROM athletes WHERE athletes.activity IS NOT NULL GROUP BY activity ORDER BY activity"
+            : "SELECT activity, COUNT(*) as athlete_count FROM athletes WHERE athletes.activity IS NOT NULL GROUP BY activity ORDER BY athlete_count DESC LIMIT 20";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getAllYears($type = ''): array
+    {
+        $sql = $type === 'ALL'
+            ? "SELECT birthyear, COUNT(*) as athlete_count FROM athletes WHERE athletes.birthyear IS NOT NULL GROUP BY birthyear ORDER BY birthyear"
+            : "SELECT birthyear, COUNT(*) as athlete_count FROM athletes WHERE athletes.birthyear IS NOT NULL GROUP BY birthyear ORDER BY athlete_count DESC LIMIT 20";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getAllNationality($type = ''): array
+    {
+        $sql = $type === 'ALL'
+            ? "SELECT nationality, COUNT(*) as athlete_count FROM athletes WHERE athletes.nationality IS NOT NULL GROUP BY nationality ORDER BY athlete_count DESC"
+            : "SELECT nationality, COUNT(*) as athlete_count FROM athletes WHERE athletes.nationality IS NOT NULL GROUP BY nationality ORDER BY athlete_count DESC LIMIT 30";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Ricerca avanzata multi-criterio (tutti i valori bound). @return \Athlete[] */
+    public function advancedSearch($title = '', $sport = '', $activity = '', $nationality = '', $birthplace = '', $year = '', $sex = ''): array
+    {
+        $query  = 'SELECT * FROM athletes WHERE 1=1';
+        $params = [];
+        if ($title !== '')       { $query .= ' AND title LIKE :title';             $params[':title'] = "%$title%"; }
+        if ($sport !== '')       { $query .= ' AND sport LIKE :sport';             $params[':sport'] = "%$sport%"; }
+        if ($activity !== '')    { $query .= ' AND activity LIKE :activity';       $params[':activity'] = "%$activity%"; }
+        if ($nationality !== '') { $query .= ' AND nationality LIKE :nationality'; $params[':nationality'] = "%$nationality%"; }
+        if ($birthplace !== '')  { $query .= ' AND birthplace LIKE :birthplace';   $params[':birthplace'] = "%$birthplace%"; }
+        if ($year !== '')        { $query .= ' AND birthyear = :year';             $params[':year'] = $year; }
+        if ($sex !== '')         { $query .= ' AND sex = :sex';                    $params[':sex'] = $sex; }
+
+        $stmt = $this->pdo->prepare($query . ' ORDER BY title LIMIT 30');
+        $stmt->execute($params);
+
+        return $this->hydrateAll($stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     /** @return \Athlete[] */
     private function hydrateAll(array $rows): array
     {

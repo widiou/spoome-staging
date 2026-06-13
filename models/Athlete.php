@@ -398,142 +398,27 @@ LIMIT :limit OFFSET :offset;
 
     public static function getAllPlaces($per_page = 20, $page = 1, $query = ''): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($page == 0) {
-            $offset = 0;
-        } else {
-            $offset = ($page) * $per_page;
-        }
-        $query = "
-        SELECT DISTINCT birthplace as place, COUNT(*) as total
-FROM athletes
-where trim(birthplace) != '' and trim(birthplace) like '%$query%'
-GROUP BY birthplace
-ORDER BY total desc
-LIMIT :limit OFFSET :offset;";
-        $stmt = $connection->prepare($query);
-        $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getAllPlaces($per_page, $page, $query);
     }
 
     public static function getAllSports($type = '', $per_page = 20, $page = 1): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($type === 'ALL') {
-            if ($page == 0) {
-                $offset = 0;
-            } else {
-                $offset = ($page) * $per_page;
-            }
-
-            $query = "
-            SELECT sport, COUNT(*) as athlete_count 
-            FROM athletes 
-            WHERE athletes.sport IS NOT NULL 
-            GROUP BY sport 
-            ORDER BY athlete_count desc
-            LIMIT :limit OFFSET :offset";
-            $stmt = $connection->prepare($query);
-            $stmt->bindParam(':limit', $per_page, PDO::PARAM_INT);
-            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-        } elseif ($type === 'MENU') {
-            $query = "
-        SELECT sport, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.sport IS NOT NULL 
-        GROUP BY sport 
-        HAVING COUNT(*) > 20
-        ORDER BY athlete_count DESC";
-            $stmt = $connection->prepare($query);
-            $stmt->execute();
-        } else {
-            $query = "
-        SELECT sport, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.sport IS NOT NULL 
-        GROUP BY sport 
-        ORDER BY athlete_count DESC
-        LIMIT 20";
-            $stmt = $connection->prepare($query);
-            $stmt->execute();
-        }
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getAllSports($type, $per_page, $page);
     }
 
     public static function getAllActivities($type = ''): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($type === 'ALL') {
-            $query = "
-        SELECT activity, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.activity IS NOT NULL 
-        GROUP BY activity 
-        ORDER BY activity";
-        } else {
-            $query = "
-        SELECT activity, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.activity IS NOT NULL 
-        GROUP BY activity 
-        ORDER BY athlete_count DESC
-        LIMIT 20";
-        }
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getAllActivities($type);
     }
 
     public static function getAllYears($type = ''): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($type === 'ALL') {
-            $query = "
-        SELECT birthyear, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.birthyear IS NOT NULL 
-        GROUP BY birthyear 
-        ORDER BY birthyear";
-        } else {
-            $query = "
-        SELECT birthyear, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.birthyear IS NOT NULL 
-        GROUP BY birthyear 
-        ORDER BY athlete_count DESC
-        LIMIT 20";
-        }
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getAllYears($type);
     }
 
     public static function getAllNationality($type = ''): array
     {
-        $connection = Database::getInstance()->getConnection();
-        if ($type === 'ALL') {
-            $query = "
-        SELECT nationality, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.nationality IS NOT NULL 
-        GROUP BY nationality 
-        ORDER BY athlete_count DESC;";
-        } else {
-            $query = "
-        SELECT nationality, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.nationality IS NOT NULL 
-        GROUP BY nationality 
-        ORDER BY athlete_count DESC
-        LIMIT 30";
-        }
-
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getAllNationality($type);
     }
 
     public static function getAthletesByProperty($property, $value): array
@@ -615,56 +500,7 @@ LIMIT :limit OFFSET :offset;";
 
     public static function advancedSearch($title = '', $sport = '', $activity = '', $nationality = '', $birthplace = '', $year = '', $sex = '')
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes WHERE 1=1";
-        $params = [];
-        if ($title !== '') {
-            $query .= " AND title LIKE :title";
-            $params[':title'] = "%$title%";
-        }
-
-        if ($sport !== '') {
-            $query .= " AND sport LIKE :sport";
-            $params[':sport'] = "%$sport%";
-        }
-
-        if ($activity !== '') {
-            $query .= " AND activity LIKE :activity";
-            $params[':activity'] = "%$activity%";
-        }
-
-        if ($nationality !== '') {
-            $query .= " AND nationality LIKE :nationality";
-            $params[':nationality'] = "%$nationality%";
-        }
-
-        if ($birthplace !== '') {
-            $query .= " AND birthplace LIKE :birthplace";
-            $params[':birthplace'] = "%$birthplace%";
-        }
-
-        if ($year !== '') {
-            $query .= " AND birthyear = :year";
-            $params[':year'] = $year;
-        }
-
-        if ($sex !== '') {
-            $query .= " AND sex = :sex";
-            $params[':sex'] = $sex;
-        }
-
-        $stmt = $connection->prepare($query . " ORDER BY title LIMIT 30");
-        $stmt->execute($params);
-
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->advancedSearch($title, $sport, $activity, $nationality, $birthplace, $year, $sex);
     }
 
     public static function searchByName(string $term, int $limit = 10): array
