@@ -35,7 +35,12 @@ final class AthleteImage
         }
 
         try {
-            $response = (new Client())->get($photoUrl, ['timeout' => 5, 'connect_timeout' => 5]);
+            $response = (new Client())->get($photoUrl, [
+                'timeout'         => 5,
+                'connect_timeout' => 5,
+                // Wikimedia (upload.wikimedia.org) richiede uno User-Agent descrittivo.
+                'headers'         => ['User-Agent' => 'Spoome/1.0 (https://spoome.it; info@spoome.it)'],
+            ]);
             if ($response->getStatusCode() !== 200) {
                 return;
             }
