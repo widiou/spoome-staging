@@ -323,19 +323,7 @@ class Athlete
 
     public static function getLast24(): array
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes where athletes.sport != '' ORDER BY id DESC LIMIT 12";
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $athletes = [];
-        foreach ($results as $row) {
-            $athlete = new Athlete();
-            $athlete->id = $row['id'];
-            $athlete->fields = $row;
-            $athletes[] = $athlete;
-        }
-        return $athletes;
+        return (new \Spoome\Athletes\AthleteRepository())->getLast24();
     }
 
     public static function search(string $field, string $value): array
@@ -517,35 +505,12 @@ class Athlete
 
     public static function getRandom(): ?Athlete
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "SELECT * FROM athletes where athletes.photo != '' and nationality != '' and LENGTH(athletes.bio) > 250  ORDER BY RAND() DESC LIMIT 1";
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        $result = $stmt->fetch();
-
-        if ($result) {
-            $athlete = new Athlete();
-            $athlete->id = $result['id'];
-            $athlete->fields = $result;
-            return $athlete;
-        }
-
-        return null;
+        return (new \Spoome\Athletes\AthleteRepository())->getRandom();
     }
 
     public static function getTopTenSports(): array
     {
-        $connection = Database::getInstance()->getConnection();
-        $query = "
-        SELECT sport, COUNT(*) as athlete_count 
-        FROM athletes 
-        WHERE athletes.sport IS NOT NULL 
-        GROUP BY sport 
-        ORDER BY athlete_count DESC 
-        LIMIT 8";
-        $stmt = $connection->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new \Spoome\Athletes\AthleteRepository())->getTopTenSports();
     }
 
     public static function fetchAthleteFromDatabase($value, $per_page = 20, $page = 1): false|array
