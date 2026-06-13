@@ -96,15 +96,18 @@ function makeCurlRequest($url, $params, $timeout = 5)
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    // Wikimedia richiede uno User-Agent descrittivo: senza, risponde 403.
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Spoome/1.0 (https://spoome.it; info@spoome.it)');
     $response = curl_exec($ch);
     if (curl_errno($ch)) {
-        error_log('Curl error: ' . curl_error($ch));
+        \Spoome\Core\Logger::warning('Curl error (Wikipedia)', ['err' => curl_error($ch)]);
         curl_close($ch);
         return [];
     }
 
     curl_close($ch);
-    return json_decode($response, true);
+    $data = json_decode($response, true);
+    return is_array($data) ? $data : [];
 }
 
 function parseWikiData($data): array
