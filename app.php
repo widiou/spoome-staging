@@ -13,6 +13,7 @@ require_once __DIR__ . '/db/Database.php';  // connessione (legacy, usata dai re
 require_once __DIR__ . '/models/Athlete.php'; // entità legacy (idratazione)
 
 use Spoome\Core\Config;
+use Spoome\Core\Migrator;
 use Spoome\Core\Router;
 use Spoome\Http\Response;
 use Spoome\Controllers\Api\AthleteController;
@@ -26,6 +27,21 @@ $router->get('/ping', static fn() => Response::json([
 
 $router->get('/athletes/search', [AthleteController::class, 'search']);
 $router->get('/athletes/{id}', [AthleteController::class, 'show']);
+
+// Runner migrazioni — MAI in produzione, richiede MIGRATION_TOKEN.
+$router->get('/migrate', static function () {
+    $token = (string) Config::get('MIGRATION_TOKEN', '');
+    if (Config::isProduction()) {
+        Response::json(['error' => 'Disabilitato in produzione'], 403);
+        return;
+    }
+    if ($token === '' || !\hash_equals($token, (string) ($_GET['token'] ?? ''))) {
+        Response::json(['error' => 'Token non valido o assente'], 403);
+        return;
+    }
+    $migrator = new Migrator(\Database::getInstance()->getConnection(), __DIR__ . '/database/migrations');
+    Response::json(['result' => $migrator->migrate()]);
+});
 
 $path = $_SERVER['PATH_INFO'] ?? ($_GET['route'] ?? '/');
 $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
