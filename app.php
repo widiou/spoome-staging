@@ -85,13 +85,16 @@ $router->get('/sportcheck', static function () {
         return;
     }
     $pdo = \Database::getInstance()->getConnection();
+    $hasCol = (bool) $pdo->query("SHOW COLUMNS FROM athletes LIKE 'sport_id'")->fetch();
 
     Response::json([
         'sports_table_count'                 => (int) $pdo->query('SELECT COUNT(*) FROM sports')->fetchColumn(),
         'athletes_distinct_sport'            => (int) $pdo->query("SELECT COUNT(DISTINCT sport) FROM athletes WHERE sport IS NOT NULL AND sport != ''")->fetchColumn(),
         'athletes_distinct_sport_normalized' => (int) $pdo->query("SELECT COUNT(DISTINCT LOWER(TRIM(sport))) FROM athletes WHERE sport IS NOT NULL AND sport != ''")->fetchColumn(),
         'athletes_empty_sport'               => (int) $pdo->query("SELECT COUNT(*) FROM athletes WHERE sport IS NULL OR sport = ''")->fetchColumn(),
-        'athletes_has_sport_id_col'          => (bool) $pdo->query("SHOW COLUMNS FROM athletes LIKE 'sport_id'")->fetch(),
+        'athletes_has_sport_id_col'          => $hasCol,
+        'athletes_sport_id_filled'           => $hasCol ? (int) $pdo->query('SELECT COUNT(*) FROM athletes WHERE sport_id IS NOT NULL')->fetchColumn() : null,
+        'athletes_sport_id_missing'          => $hasCol ? (int) $pdo->query("SELECT COUNT(*) FROM athletes WHERE sport IS NOT NULL AND sport != '' AND sport_id IS NULL")->fetchColumn() : null,
         'top_sports'                         => $pdo->query("SELECT sport, COUNT(*) c FROM athletes WHERE sport IS NOT NULL AND sport != '' GROUP BY sport ORDER BY c DESC LIMIT 40")->fetchAll(PDO::FETCH_KEY_PAIR),
     ]);
 });
