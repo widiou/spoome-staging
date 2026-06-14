@@ -45,8 +45,9 @@ return new class {
             $existingLower[] = \mb_strtolower((string) $sport);
         }
 
-        // Backfill (match esatto su nome, collation utf8mb4_unicode_ci = case-insensitive).
-        $pdo->exec('UPDATE athletes a JOIN sports s ON a.sport = s.nome SET a.sport_id = s.id WHERE a.sport_id IS NULL');
+        // Backfill (match su nome). COLLATE esplicito: le due tabelle hanno collation
+        // diverse (athletes=utf8mb4_unicode_ci, sports=default DB) -> altrimenti errore 1267.
+        $pdo->exec('UPDATE athletes a JOIN sports s ON a.sport = s.nome COLLATE utf8mb4_unicode_ci SET a.sport_id = s.id WHERE a.sport_id IS NULL');
 
         if (!$this->hasIndex($pdo, 'athletes', 'idx_athletes_sport_id')) {
             $pdo->exec('ALTER TABLE athletes ADD INDEX idx_athletes_sport_id (sport_id)');
