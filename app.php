@@ -73,5 +73,28 @@ $router->get('/dbcheck', static function () {
     ]);
 });
 
+// Stato dati sport (read-only) per pianificare la normalizzazione. Stessa protezione.
+$router->get('/sportcheck', static function () {
+    $token = (string) Config::get('MIGRATION_TOKEN', '');
+    if (Config::isProduction()) {
+        Response::json(['error' => 'Disabilitato in produzione'], 403);
+        return;
+    }
+    if ($token === '' || !\hash_equals($token, (string) ($_GET['token'] ?? ''))) {
+        Response::json(['error' => 'Token non valido o assente'], 403);
+        return;
+    }
+    $pdo = \Database::getInstance()->getConnection();
+
+    Response::json([
+        'sports_table_count'                 => (int) $pdo->query('SELECT COUNT(*) FROM sports')->fetchColumn(),
+        'athletes_distinct_sport'            => (int) $pdo->query("SELECT COUNT(DISTINCT sport) FROM athletes WHERE sport IS NOT NULL AND sport != ''")->fetchColumn(),
+        'athletes_distinct_sport_normalized' => (int) $pdo->query("SELECT COUNT(DISTINCT LOWER(TRIM(sport))) FROM athletes WHERE sport IS NOT NULL AND sport != ''")->fetchColumn(),
+        'athletes_empty_sport'               => (int) $pdo->query("SELECT COUNT(*) FROM athletes WHERE sport IS NULL OR sport = ''")->fetchColumn(),
+        'athletes_has_sport_id_col'          => (bool) $pdo->query("SHOW COLUMNS FROM athletes LIKE 'sport_id'")->fetch(),
+        'top_sports'                         => $pdo->query("SELECT sport, COUNT(*) c FROM athletes WHERE sport IS NOT NULL AND sport != '' GROUP BY sport ORDER BY c DESC LIMIT 40")->fetchAll(PDO::FETCH_KEY_PAIR),
+    ]);
+});
+
 $path = $_SERVER['PATH_INFO'] ?? ($_GET['route'] ?? '/');
 $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
