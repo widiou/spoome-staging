@@ -43,5 +43,35 @@ $router->get('/migrate', static function () {
     Response::json(['result' => $migrator->migrate()]);
 });
 
+// Diagnostica DB (read-only) per decidere migrazioni sicure. Stessa protezione di /migrate.
+$router->get('/dbcheck', static function () {
+    $token = (string) Config::get('MIGRATION_TOKEN', '');
+    if (Config::isProduction()) {
+        Response::json(['error' => 'Disabilitato in produzione'], 403);
+        return;
+    }
+    if ($token === '' || !\hash_equals($token, (string) ($_GET['token'] ?? ''))) {
+        Response::json(['error' => 'Token non valido o assente'], 403);
+        return;
+    }
+    $pdo = \Database::getInstance()->getConnection();
+    $val = static fn(string $sql): int => (int) $pdo->query($sql)->fetchColumn();
+
+    Response::json([
+        'organizations' => [
+            'total'              => $val('SELECT COUNT(*) FROM organizations'),
+            'null_item_id'       => $val('SELECT COUNT(*) FROM organizations WHERE item_id IS NULL'),
+            'distinct_item_id'   => $val('SELECT COUNT(DISTINCT item_id) FROM organizations'),
+            'dup_item_id_groups' => $val('SELECT COUNT(*) FROM (SELECT item_id FROM organizations WHERE item_id IS NOT NULL GROUP BY item_id HAVING COUNT(*) > 1) t'),
+        ],
+        'bigevents' => [
+            'total'              => $val('SELECT COUNT(*) FROM bigevents'),
+            'null_item_id'       => $val('SELECT COUNT(*) FROM bigevents WHERE item_id IS NULL'),
+            'distinct_item_id'   => $val('SELECT COUNT(DISTINCT item_id) FROM bigevents'),
+            'dup_item_id_groups' => $val('SELECT COUNT(*) FROM (SELECT item_id FROM bigevents GROUP BY item_id HAVING COUNT(*) > 1) t'),
+        ],
+    ]);
+});
+
 $path = $_SERVER['PATH_INFO'] ?? ($_GET['route'] ?? '/');
 $router->dispatch($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
