@@ -11,10 +11,13 @@ return new class {
     {
         $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
 
+        // rss_cache esclusa: UNIQUE(title) con titoli RSS che collidono sotto unicode_ci
+        // (errore 1062). È una cache rigenerabile e non viene joinata con altre tabelle.
         $tables = $pdo->query(
             "SELECT TABLE_NAME FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = " . $pdo->quote((string) $db) . "
                AND TABLE_TYPE = 'BASE TABLE'
+               AND TABLE_NAME <> 'rss_cache'
                AND (TABLE_COLLATION IS NULL OR TABLE_COLLATION <> 'utf8mb4_unicode_ci')"
         )->fetchAll(\PDO::FETCH_COLUMN);
 
