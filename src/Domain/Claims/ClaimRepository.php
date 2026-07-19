@@ -37,6 +37,51 @@ final class ClaimRepository
         return $row ?: null;
     }
 
+    /**
+     * Blocca la riga del profilo target e ne restituisce lo stato di rivendicazione.
+     * Va chiamato DENTRO una transazione: serializza gli `approve` concorrenti sullo STESSO
+     * profilo (due admin, richieste diverse) e chiude la finestra TOCTOU sull'ownership.
+     * Nota: query di sola lettura sulla connessione condivisa (`Db::connection()`), il lock è
+     * sulla transazione — la riga vive in `profiles`, ma il lock è legato alla connessione, non al repo.
+     * @return array{id:int,user_id:?int,claim_status:?string}|null
+     */
+    public function lockProfileForClaim(int $profileId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT id, user_id, claim_status FROM profiles WHERE id = :pid FOR UPDATE'
+        );
+        $stmt->execute(['pid' => $profileId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    /**
+     * Blocca la riga della richiesta e ne restituisce lo stato corrente (rivalidazione sotto lock).
+     * Va chiamato DENTRO una transazione: serializza due `approve`/`reject` sulla STESSA richiesta.
+     */
+    public function lockRequestStatus(int $requestId): ?string
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT status FROM claim_requests WHERE id = :rid FOR UPDATE'
+        );
+        $stmt->execute(['rid' => $requestId]);
+        $status = $stmt->fetchColumn();
+        return $status === false ? null : (string) $status;
+    }
+
+    /**
+     * Blocca la riga del richiedente (guard "hai già un profilo"). Va chiamato DENTRO una
+     * transazione: serializza due `approve` sullo STESSO utente (richieste su profili diversi),
+     * così solo il primo può diventare owner e il secondo rivalida `userHasProfile` sotto lock.
+     * @return bool false se l'utente non esiste più (annulla l'approvazione).
+     */
+    public function lockUserExists(int $userId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM users WHERE id = :uid FOR UPDATE');
+        $stmt->execute(['uid' => $userId]);
+        return $stmt->fetchColumn() !== false;
+    }
+
     /** Dettaglio richiesta con dati profilo + richiedente (per l'admin). */
     public function findDetail(int $id): ?array
     {
