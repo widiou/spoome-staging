@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(ls:*)",
+      "Bash(python3 jobs/deploy.py --dry-run)",
+      "Bash(curl -sS https://spoome.it/beta/*)",
+      "Bash(curl -sSI https://spoome.it/beta/*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.deploy.env)",
+      "Edit(.env)",
+      "Edit(.deploy.env)"
+    ]
+  }
+}
