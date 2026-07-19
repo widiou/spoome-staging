@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Horizon 0 · perf discovery — indici per la directory pubblica (`ProfileRepository::listPublic`).
  *
@@ -7,7 +8,7 @@
  * (una per tipo). Dopo: due indici che coprono filtro E ordinamento → "Backward index scan; Using
  * index", zero filesort. Idempotente (controlla information_schema prima di creare/eliminare).
  */
-return new class {
+return new class () {
     private function indexExists(\PDO $pdo, string $name): bool
     {
         $stmt = $pdo->prepare(

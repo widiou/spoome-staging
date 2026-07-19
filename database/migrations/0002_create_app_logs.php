@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Tabella dei log applicativi (error/warning persistiti per analisi e storico consolidabile).
  * Il fingerprint (sha1 di livello|canale|file:line) raggruppa gli eventi ricorrenti.
  * I log completi di tutti i livelli restano anche su file JSONL (storage/logs/app.log).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS app_logs (

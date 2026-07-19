@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Notifiche in-app (riusabili per qualsiasi evento: claim, follow, connessioni, DM…).
  * Ogni riga è una notifica destinata a un utente, con tipo, testo e link di destinazione.
  * `read_at` traccia la lettura (badge non-letti in nav).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS notifications (

@@ -63,28 +63,28 @@ final class UsersController extends AdminController
 
     public function suspend(Request $request): void
     {
-        $this->run($request, static fn(AdminUserService $s, int $me, int $id, string $ip) => $s->suspend($me, $id, $ip));
+        $this->run($request, static fn (AdminUserService $s, int $me, int $id, string $ip) => $s->suspend($me, $id, $ip));
     }
 
     public function reactivate(Request $request): void
     {
-        $this->run($request, static fn(AdminUserService $s, int $me, int $id, string $ip) => $s->reactivate($me, $id, $ip));
+        $this->run($request, static fn (AdminUserService $s, int $me, int $id, string $ip) => $s->reactivate($me, $id, $ip));
     }
 
     public function verifyEmail(Request $request): void
     {
-        $this->run($request, static fn(AdminUserService $s, int $me, int $id, string $ip) => $s->verifyEmail($me, $id, $ip));
+        $this->run($request, static fn (AdminUserService $s, int $me, int $id, string $ip) => $s->verifyEmail($me, $id, $ip));
     }
 
     public function changeRole(Request $request): void
     {
         $role = (string) $request->input('role', '');
-        $this->run($request, static fn(AdminUserService $s, int $me, int $id, string $ip) => $s->changeRole($me, $id, $role, $ip));
+        $this->run($request, static fn (AdminUserService $s, int $me, int $id, string $ip) => $s->changeRole($me, $id, $role, $ip));
     }
 
     public function verifyProfile(Request $request): void
     {
-        $this->run($request, static fn(AdminUserService $s, int $me, int $id, string $ip) => $s->toggleProfileVerified($me, $id, $ip));
+        $this->run($request, static fn (AdminUserService $s, int $me, int $id, string $ip) => $s->toggleProfileVerified($me, $id, $ip));
     }
 
     /** Esegue un'azione utente e torna alla scheda con flash. */

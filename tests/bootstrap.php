@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Bootstrap dei test. Carica l'autoloader applicativo (nessuna dipendenza runtime da Composer)
  * più l'autoload PSR-4 di Composer per le classi di test, se presente.

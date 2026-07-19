@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Realtime Phase 1 — inbox durevole per-utente (§3 realtime-spec).
  * Log append-only, un id BIGINT monotono = cursore unificato del client. Ogni riga appartiene a
  * ESATTAMENTE un destinatario (user_id): scoping per-utente = invariante di sicurezza (nessun
  * evento condiviso/globale che possa trapelare tra utenti). Additivo: nessuna tabella esistente toccata.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS user_events (

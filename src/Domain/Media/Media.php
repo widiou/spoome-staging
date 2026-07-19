@@ -16,7 +16,8 @@ final class Media
         public readonly ?int $width = null,
         public readonly ?int $height = null,
         public readonly int $sizeBytes = 0,
-    ) {}
+    ) {
+    }
 
     public static function fromRow(array $row): self
     {

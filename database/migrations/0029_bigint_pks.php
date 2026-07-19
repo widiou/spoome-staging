@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Scalabilità: PK/FK da `INT` firmato → `BIGINT UNSIGNED` sulle tabelle ad alta crescita
  * (posts, messages, follows, connections, activities). INT firmato satura a ~2,1 mld; farlo
@@ -13,7 +14,7 @@
  * AUTO_INCREMENT (contatore) è preservato da MODIFY. Idempotente: ogni passo controlla
  * information_schema prima di agire, così è ri-eseguibile senza errori.
  */
-return new class {
+return new class () {
     private function columnType(\PDO $pdo, string $table, string $column): string
     {
         $stmt = $pdo->prepare(

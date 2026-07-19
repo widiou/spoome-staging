@@ -97,8 +97,12 @@ final class AuthController extends Controller
         $sportId   = $sportSlug !== '' ? (new SportRepository())->idBySlug($sportSlug) : null;
 
         $result = (new AuthService())->register(
-            (string) $data['email'], (string) $data['password'],
-            (string) $data['display_name'], (string) $data['profile_type'], $request->ip(), $sportId
+            (string) $data['email'],
+            (string) $data['password'],
+            (string) $data['display_name'],
+            (string) $data['profile_type'],
+            $request->ip(),
+            $sportId
         );
 
         if (!$result['ok'] && ($result['error'] ?? '') !== 'email_taken') {

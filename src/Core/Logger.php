@@ -51,13 +51,28 @@ final class Logger
         }
     }
 
-    public static function error(string $m, array $c = [], string $ch = 'app'): void   { self::log('error', $m, $c, $ch); }
-    public static function warning(string $m, array $c = [], string $ch = 'app'): void { self::log('warning', $m, $c, $ch); }
-    public static function info(string $m, array $c = [], string $ch = 'app'): void    { self::log('info', $m, $c, $ch); }
-    public static function debug(string $m, array $c = [], string $ch = 'app'): void   { self::log('debug', $m, $c, $ch); }
+    public static function error(string $m, array $c = [], string $ch = 'app'): void
+    {
+        self::log('error', $m, $c, $ch);
+    }
+    public static function warning(string $m, array $c = [], string $ch = 'app'): void
+    {
+        self::log('warning', $m, $c, $ch);
+    }
+    public static function info(string $m, array $c = [], string $ch = 'app'): void
+    {
+        self::log('info', $m, $c, $ch);
+    }
+    public static function debug(string $m, array $c = [], string $ch = 'app'): void
+    {
+        self::log('debug', $m, $c, $ch);
+    }
 
     /** Canale dedicato agli eventi di sicurezza (login falliti, accessi negati, ...). */
-    public static function security(string $m, array $c = []): void { self::log('warning', $m, $c, 'security'); }
+    public static function security(string $m, array $c = []): void
+    {
+        self::log('warning', $m, $c, 'security');
+    }
 
     /**
      * Pulizia (job di manutenzione): elimina dalla tabella `app_logs` gli eventi più vecchi di N giorni.

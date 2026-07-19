@@ -88,7 +88,7 @@ final class SkillService
         if ($this->limiter->tooManyByKey('skill:' . $ownerProfileId, self::MANAGE_MAX, self::MANAGE_WINDOW)) {
             return ServiceResult::fail(I18n::t('skill.error.throttled'), 429);
         }
-        $ids = array_values(array_filter(array_map('intval', $orderedIds), static fn($i) => $i > 0));
+        $ids = array_values(array_filter(array_map('intval', $orderedIds), static fn ($i) => $i > 0));
         if ($ids !== []) {
             $this->repo->reorder($ownerProfileId, $ids);
             $this->limiter->hit('skill:' . $ownerProfileId, $ip);

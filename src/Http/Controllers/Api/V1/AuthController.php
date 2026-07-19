@@ -37,8 +37,11 @@ final class AuthController extends ApiController
         }
 
         (new AuthService())->register(
-            (string) $data['email'], (string) $data['password'],
-            (string) $data['display_name'], (string) $data['profile_type'], $request->ip()
+            (string) $data['email'],
+            (string) $data['password'],
+            (string) $data['display_name'],
+            (string) $data['profile_type'],
+            $request->ip()
         );
         // Anti-enumeration: risposta identica sia che l'email esista o meno.
         Response::json(['message' => I18n::t('api.auth.registered')], 201);

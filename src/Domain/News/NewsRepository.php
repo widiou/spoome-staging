@@ -87,8 +87,12 @@ final class NewsRepository
         $stmt = $this->pdo->prepare($sql);
         $i = 1;
         // EMULATE_PREPARES=false: i placeholder non sono riusabili → lego $ids due volte (EXISTS + item).
-        foreach ($ids as $v) { $stmt->bindValue($i++, $v, PDO::PARAM_INT); }
-        foreach ($ids as $v) { $stmt->bindValue($i++, $v, PDO::PARAM_INT); }
+        foreach ($ids as $v) {
+            $stmt->bindValue($i++, $v, PDO::PARAM_INT);
+        }
+        foreach ($ids as $v) {
+            $stmt->bindValue($i++, $v, PDO::PARAM_INT);
+        }
         $stmt->bindValue($i, $limit, PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll();

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Front controller UNICO di Spoome v2 (web + API).
  * La docroot dovrebbe puntare qui (public/). In staging sotto /beta/ funziona anche con la

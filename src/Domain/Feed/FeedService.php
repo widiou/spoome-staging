@@ -43,13 +43,15 @@ final class FeedService
         $hasMore = count($rows) > $perPage;
         $rows = array_slice($rows, 0, $perPage);
 
-        $authorIds = array_map(static fn($r) => (int) $r['profile_id'], $rows);
+        $authorIds = array_map(static fn ($r) => (int) $r['profile_id'], $rows);
         $authors = $this->profiles->cardsByIds($authorIds);
 
         // Idratazione engagement: like del viewer + commenti, per i soli post della pagina.
         $postIds = [];
         foreach ($rows as $r) {
-            if ($r['kind'] === 'post') { $postIds[] = (int) $r['id']; }
+            if ($r['kind'] === 'post') {
+                $postIds[] = (int) $r['id'];
+            }
         }
         $likedSet = array_flip($this->posts->likedPostIds($profileId, $postIds));
         $commentsByPost = $this->posts->commentsForPosts($postIds);
@@ -107,7 +109,7 @@ final class FeedService
         // Le news cambiano solo alla cadenza di ingest (refresh_minutes ≥ 60): cachiamo per set-di-sport
         // (chiave condivisa tra tutti gli utenti con lo stesso interesse) → 2 query fuori dal percorso caldo.
         $key  = 'news_sports_' . md5(implode(',', $sportIds));
-        $news = \Spoome\Core\Cache::remember($key, 600, static fn() => (new \Spoome\Domain\News\NewsRepository())->forSports($sportIds, 3));
+        $news = \Spoome\Core\Cache::remember($key, 600, static fn () => (new \Spoome\Domain\News\NewsRepository())->forSports($sportIds, 3));
         if ($news === []) {
             return $items;
         }
@@ -159,13 +161,15 @@ final class FeedService
             return [];
         }
 
-        $postIds        = array_map(static fn($r) => (int) $r['id'], $rows);
+        $postIds        = array_map(static fn ($r) => (int) $r['id'], $rows);
         $likedSet       = $viewerPid !== null ? array_flip($this->posts->likedPostIds($viewerPid, $postIds)) : [];
         $commentsByPost = $this->posts->commentsForPosts($postIds);
 
         $hashes = [];
         foreach ($rows as $r) {
-            if (!empty($r['link_preview_url_hash'])) { $hashes[] = (string) $r['link_preview_url_hash']; }
+            if (!empty($r['link_preview_url_hash'])) {
+                $hashes[] = (string) $r['link_preview_url_hash'];
+            }
         }
         $previews = $hashes === [] ? [] : (new LinkPreviewRepository())->findMany($hashes);
 

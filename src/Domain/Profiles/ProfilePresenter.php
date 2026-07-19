@@ -144,7 +144,7 @@ final class ProfilePresenter
             'label'              => $s['label'],
             'endorsements'       => (int) ($s['endorsements_count'] ?? 0),
             'endorsed_by_viewer' => in_array($sid, $endorsedIds, true),
-            'endorsers'          => array_map(static fn(array $e): array => [
+            'endorsers'          => array_map(static fn (array $e): array => [
                 'display_name' => (string) $e['display_name'],
                 'avatar_url'   => self::assetUrl($e['avatar_path'] ?? null),
             ], $endorsers[$sid] ?? []),

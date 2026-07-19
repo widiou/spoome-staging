@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Checkpoint 3 · R3 — Abilita il multi-profilo a livello schema.
  *
@@ -10,7 +11,7 @@
  * elimina l'UNIQUE (così la FK non resta mai senza indice di supporto). Non distruttivo per i dati.
  * L'univocità dell'ownership authz è ora garantita da `profile_members` (UNIQUE profile_id,user_id).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         // Indice normale di supporto (idempotente: crea solo se manca).

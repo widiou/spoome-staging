@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Grafo "follow" (asimmetrico): un profilo segue un altro profilo (fan → atleta/società).
  * Coppia unica, FK ON DELETE CASCADE. L'anti auto-follow è imposto a livello applicativo (portabilità).
  * Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

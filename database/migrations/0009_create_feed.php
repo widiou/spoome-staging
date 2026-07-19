@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Feed ibrido: `posts` (contenuti scritti dagli utenti) + `activities` (eventi automatici:
  * palmarès/esperienza aggiunti, nuovo follow, nuova connessione).
  * `activities.meta` è denormalizzato (testo pronto) così il rendering è robusto anche se
  * l'entità collegata viene poi modificata/eliminata. Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

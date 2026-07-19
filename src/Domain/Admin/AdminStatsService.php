@@ -156,7 +156,7 @@ final class AdminStatsService
     private function pairs(string $sql): array
     {
         return array_map(
-            static fn($r) => ['label' => (string) $r['k'], 'count' => (int) $r['c']],
+            static fn ($r) => ['label' => (string) $r['k'], 'count' => (int) $r['c']],
             $this->pdo->query($sql)->fetchAll()
         );
     }

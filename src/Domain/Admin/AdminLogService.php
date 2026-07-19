@@ -78,7 +78,7 @@ final class AdminLogService
     public function channels(): array
     {
         return array_map(
-            static fn($r) => (string) $r['channel'],
+            static fn ($r) => (string) $r['channel'],
             $this->pdo->query('SELECT DISTINCT channel FROM app_logs ORDER BY channel')->fetchAll()
         );
     }

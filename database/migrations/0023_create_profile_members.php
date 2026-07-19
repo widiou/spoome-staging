@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Checkpoint 3 · R0 — Modello multi-profilo / page-admin.
  * Aggiunge `profile_members` come sorgente di verità dell'AUTHZ "chi può agire come quale profilo".
@@ -11,7 +12,7 @@
  * NB (R1): la logica authz (`ActingContext::canActAs`) legge questa tabella con dual-read fallback su
  * `profiles.user_id`; NON è ancora cablata in alcun controller. R5 cablerà i call-site alle write.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS profile_members (

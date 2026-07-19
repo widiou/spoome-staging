@@ -79,8 +79,12 @@ final class FeedRepository
         // Ordine di binding = ordine dei ? nella query: me (affinità), connIds, srcIds (WHERE), limit, offset.
         $i = 1;
         $stmt->bindValue($i++, $me, PDO::PARAM_INT);
-        foreach ($conn as $v) { $stmt->bindValue($i++, $v, PDO::PARAM_INT); }
-        foreach ($src as $v)  { $stmt->bindValue($i++, $v, PDO::PARAM_INT); }
+        foreach ($conn as $v) {
+            $stmt->bindValue($i++, $v, PDO::PARAM_INT);
+        }
+        foreach ($src as $v) {
+            $stmt->bindValue($i++, $v, PDO::PARAM_INT);
+        }
         $stmt->bindValue($i++, $limit, PDO::PARAM_INT);
         $stmt->bindValue($i++, $offset, PDO::PARAM_INT);
         $stmt->execute();

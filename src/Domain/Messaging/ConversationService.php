@@ -54,7 +54,7 @@ final class ConversationService
 
         return ServiceResult::ok([
             'conversation_id' => $convId,
-            'messages'        => array_map(static fn($m) => MessagePresenter::item($m, $actorId), $rows),
+            'messages'        => array_map(static fn ($m) => MessagePresenter::item($m, $actorId), $rows),
         ]);
     }
 
@@ -77,7 +77,7 @@ final class ConversationService
             $this->messages->markRead($convId, $actorId);
         }
         return ServiceResult::ok([
-            'messages' => array_map(static fn($m) => MessagePresenter::item($m, $actorId), $rows),
+            'messages' => array_map(static fn ($m) => MessagePresenter::item($m, $actorId), $rows),
         ]);
     }
 
@@ -85,7 +85,7 @@ final class ConversationService
     public function inbox(int $actorId): array
     {
         $rows = $this->conversations->inbox($actorId);
-        $otherIds = array_map(static fn($r) => (int) $r['other_id'], $rows);
+        $otherIds = array_map(static fn ($r) => (int) $r['other_id'], $rows);
         $cards = $this->profiles->cardsByIds($otherIds);
         $unread = $this->messages->unreadByConversation($actorId);
 

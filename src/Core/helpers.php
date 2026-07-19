@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Helper globali per i template (escaping e URL). Caricati al boot dal front controller.
  */
@@ -299,7 +300,7 @@ if (!function_exists('acting_switcher_data')) {
             if ($rows === []) {
                 return $cache = null;
             }
-            $ids   = array_map(static fn($r) => (int) $r['profile_id'], $rows);
+            $ids   = array_map(static fn ($r) => (int) $r['profile_id'], $rows);
             $cards = (new \Spoome\Domain\Profiles\ProfileRepository())->cardsByIds($ids);
             $current = acting_profile_id();
             $options = [];
@@ -318,7 +319,7 @@ if (!function_exists('acting_switcher_data')) {
                 ];
             }
             // Personale (non-org) in cima, poi le pagine.
-            usort($options, static fn($a, $b) => ($a['is_org'] <=> $b['is_org']));
+            usort($options, static fn ($a, $b) => ($a['is_org'] <=> $b['is_org']));
             return $cache = ['current' => $current, 'options' => $options];
         } catch (\Throwable $e) {
             return $cache = null;

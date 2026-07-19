@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Checkpoint 2 — Link unfurl (rich previews).
  * Cache delle anteprime link chiavata su url_hash = sha256(URL normalizzato), con TTL (expires_at).
@@ -9,7 +10,7 @@
  * NB: numerazione allineata al "prossimo libero" reale del DB (0019), non allo schema teorico della SPEC
  * (che riservava 0019-0020 a realtime): quelle migrazioni non esistono in questo ramo.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS link_previews (
