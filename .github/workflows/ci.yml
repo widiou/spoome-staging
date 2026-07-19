@@ -45,11 +45,11 @@ jobs:
         env:
           COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # composer.lock in HEAD è fuori sync con composer.json (manca phpunit/phpstan/cs-fixer):
-      # `update` risolve da composer.json in modo affidabile e installa anche i require-dev.
-      # La rigenerazione di un lock coerente da committare è tracciata su issue #19.
-      - name: Composer update
-        run: composer update --prefer-dist --no-progress
+      # composer.lock è coerente con composer.json (rigenerato in CI, issue #19):
+      # `install` è deterministico e verifica che il lock non sia mai fuori sync
+      # (fallisce se qualcuno tocca composer.json senza rigenerare il lock).
+      - name: Composer install
+        run: composer install --prefer-dist --no-progress
 
       - name: PHPUnit (bloccante)
         env:
