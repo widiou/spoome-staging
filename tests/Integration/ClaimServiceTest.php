@@ -6,6 +6,7 @@ namespace Spoome\Tests\Integration;
 
 use PDO;
 use PDOException;
+use PDOStatement;
 use PHPUnit\Framework\TestCase;
 use Spoome\Domain\Claims\ClaimRepository;
 use Spoome\Domain\Claims\ClaimService;
@@ -206,6 +207,53 @@ final class ClaimServiceTest extends TestCase
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    /**
+     * PDO "avvelenato" per i test di conflitto: una connessione REALE al DB di test in cui
+     * SOLO la query di lock del profilo (`lockProfileForClaim`, l'unica con
+     * `profiles WHERE id = :pid FOR UPDATE`) lancia $toThrow; ogni altra query passa a PDO reale.
+     *
+     * Perché il seam è sul PDO e non sulla repo: `ClaimRepository` è `final` (incapsulamento di
+     * produzione) → non si può sottoclassare né mockare. Iniettando questo driver in una repo/
+     * service VERI testiamo il codice reale (repo + guard runGuardedTransaction) con il solo
+     * conflitto InnoDB simulato — più fedele del subclassing. Lanciamo da `prepare()` (non da un
+     * PDOStatement finto): il costruttore di PDOStatement è privato, non è instanziabile con `new`,
+     * e per la guardia conta solo che una PDOException col giusto errno risalga dalla transazione.
+     */
+    private function poisonedPdoOnProfileLock(PDOException $toThrow): PDO
+    {
+        $opts = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+
+        return new class(
+            (string) getenv('SPOOME_TEST_DSN'),
+            (string) getenv('SPOOME_TEST_USER'),
+            (string) getenv('SPOOME_TEST_PASS'),
+            $opts,
+            $toThrow
+        ) extends PDO {
+            private PDOException $toThrow;
+
+            /** @param array<int,mixed> $opts */
+            public function __construct(string $dsn, string $user, string $pass, array $opts, PDOException $toThrow)
+            {
+                parent::__construct($dsn, $user, $pass, $opts);
+                $this->toThrow = $toThrow;
+            }
+
+            /** @param array<mixed> $options */
+            public function prepare(string $query, array $options = []): PDOStatement|false
+            {
+                if (str_contains($query, 'profiles WHERE id = :pid FOR UPDATE')) {
+                    throw $this->toThrow;
+                }
+                return parent::prepare($query, $options);
+            }
+        };
     }
 
     /* --------------------------------------------------------------------------- request() ---- */
@@ -551,8 +599,8 @@ final class ClaimServiceTest extends TestCase
     /**
      * #27 — un deadlock InnoDB (SQLSTATE 40001 / errno 1213) sollevato DENTRO la transazione di
      * approve() deve tradursi in un ServiceResult di conflitto 409 (che il controller mappa a HTTP
-     * 409), NON propagarsi come PDOException fino a un 500. Iniettiamo un ClaimRepository che lancia
-     * il deadlock alla prima query sotto lock (lockProfileForClaim), dopo che i pre-check statici
+     * 409), NON propagarsi come PDOException fino a un 500. Iniettiamo un PDO avvelenato (query di
+     * lock del profilo → deadlock) in una ClaimService/Repository VERE, dopo che i pre-check statici
      * sono passati; verifichiamo il codice 409 e che il rollback non abbia lasciato scritture.
      */
     public function testApproveMapsInnodbDeadlockToConflict409NotUncaughtException(): void
@@ -562,17 +610,12 @@ final class ClaimServiceTest extends TestCase
         $req       = $this->service()->request($userId, $profileId, null, '5.5.2.1');
         $requestId = (int) $req->data['id'];
 
-        // Repo che, sotto lock, riproduce il deadlock 1213 osservato in CI sulla corsa reale.
-        $deadlockRepo = new class($this->pdo) extends ClaimRepository {
-            public function lockProfileForClaim(int $profileId): ?array
-            {
-                $e = new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock', 40001);
-                $e->errorInfo = ['40001', 1213, 'Deadlock found when trying to get lock; try restarting transaction'];
-                throw $e;
-            }
-        };
+        // Deadlock 1213 (come osservato in CI sulla corsa reale). getCode() '40001' O errno 1213.
+        $deadlock = new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock', 40001);
+        $deadlock->errorInfo = ['40001', 1213, 'Deadlock found when trying to get lock; try restarting transaction'];
+        $service = new ClaimService(new ClaimRepository($this->poisonedPdoOnProfileLock($deadlock)));
 
-        $result = (new ClaimService($deadlockRepo))->approve($this->adminId, $requestId, '5.5.2.2');
+        $result = $service->approve($this->adminId, $requestId, '5.5.2.2');
 
         $this->assertFalse($result->ok, 'un deadlock è un conflitto, non un successo');
         $this->assertSame(409, $result->code, 'il deadlock deve diventare 409, non propagarsi come 500');
@@ -587,7 +630,7 @@ final class ClaimServiceTest extends TestCase
     /**
      * #27 (P2-a) — anche un lock-wait timeout InnoDB (errno 1205) su una riga contesa è un esito di
      * corsa legittimo e deve diventare un ServiceResult di conflitto 409, non un 500. Gemello del
-     * test del deadlock: stesso test-double, ma la query sotto lock scade invece di deadlockare.
+     * test del deadlock: stesso seam (PDO avvelenato), ma la query di lock scade invece di deadlockare.
      */
     public function testApproveMapsLockWaitTimeoutToConflict409NotUncaughtException(): void
     {
@@ -596,19 +639,14 @@ final class ClaimServiceTest extends TestCase
         $req       = $this->service()->request($userId, $profileId, null, '5.5.4.1');
         $requestId = (int) $req->data['id'];
 
-        // Repo che, sotto lock, riproduce il lock-wait timeout (errno 1205, SQLSTATE HY000).
-        $timeoutRepo = new class($this->pdo) extends ClaimRepository {
-            public function lockProfileForClaim(int $profileId): ?array
-            {
-                // getCode() resta 0: il riconoscimento del timeout 1205 passa da errorInfo[1]
-                // (SQLSTATE HY000 non è un conflitto di per sé), non dal code della PDOException.
-                $e = new PDOException('SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction');
-                $e->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded; try restarting transaction'];
-                throw $e;
-            }
-        };
+        // Lock-wait timeout: getCode() resta 0 (SQLSTATE HY000 non è un conflitto di per sé), il
+        // riconoscimento passa da errorInfo[1] === 1205. NB: il costruttore PDOException vuole un
+        // int come code, quindi lo lasciamo a 0 e mettiamo lo SQLSTATE solo in messaggio/errorInfo.
+        $timeout = new PDOException('SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction');
+        $timeout->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded; try restarting transaction'];
+        $service = new ClaimService(new ClaimRepository($this->poisonedPdoOnProfileLock($timeout)));
 
-        $result = (new ClaimService($timeoutRepo))->approve($this->adminId, $requestId, '5.5.4.2');
+        $result = $service->approve($this->adminId, $requestId, '5.5.4.2');
 
         $this->assertFalse($result->ok, 'un lock-wait timeout è un conflitto, non un successo');
         $this->assertSame(409, $result->code, 'il timeout 1205 deve diventare 409, non propagarsi come 500');
