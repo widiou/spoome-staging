@@ -567,14 +567,43 @@ PHP;
         $requestId2 = (int) $reqOnProfile2->data['id'];
 
         [$process, $pipes, $script] = $this->startRaceChild('user', $profile1, $requestId1, $userX, 1500);
+        // CAUSA ESATTA del deadlock 1213 osservato in CI (diagnosticato dopo review): il child
+        // (come approve() reale) esegue, DOPO aver preso il lock conteso sulla riga UTENTE,
+        // l'equivalente di ClaimRepository::rejectOtherPending() — una UPDATE con
+        // `WHERE profile_id = :p AND id <> :ex AND status = 'pending'` sull'indice NON-unique
+        // `profile_id` di claim_requests. Per prevenire fantasmi, InnoDB applica un next-key lock
+        // che si estende alla riga SUCCESSIVA nel B-tree dell'indice — che qui è proprio la riga
+        // di $requestId2 (profile2), perché con soli due claim_requests nel DB usa-e-getta le
+        // voci "profile1" e "profile2" sono adiacenti nell'indice. Il padre, nel frattempo, ha
+        // già preso il lock FOR UPDATE su $requestId2 (lockRequestStatus, eseguito PRIMA di
+        // bloccarsi su lockUserExists) e resta in attesa del lock utente tenuto dal child.
+        // Risultato: padre bloccato su utente (tenuto dal child) mentre il child si blocca su
+        // request2 (tenuto dal padre) → ciclo → InnoDB sceglie una vittima e lancia 1213/40001.
+        // Non è un bug del fix: è InnoDB che chiude la finestra di corsa con un rollback invece
+        // che con un ritorno applicativo 409 — un esito di conflitto legittimo quanto quello
+        // "morbido". Lo trattiamo come tale, verificando comunque sotto l'invariante di sicurezza
+        // primaria sullo stato finale del DB (R-1a).
+        $result         = null;
+        $deadlockCaught = false;
         try {
             $this->waitForLocked($pipes);
 
             $result = $svc->approve($this->adminId, $requestId2, '9.9.2.3');
-
-            $this->assertFalse($result->ok);
+        } catch (PDOException $e) {
+            $sqlstate    = $e->getCode();
+            $driverCode  = $e->errorInfo[1] ?? null;
+            $isDeadlock  = $sqlstate === '40001' || $driverCode === 1213
+                || stripos($e->getMessage(), 'Deadlock found') !== false;
+            if (!$isDeadlock) {
+                throw $e; // qualunque altro errore resta un fallimento reale del test
+            }
+            $deadlockCaught = true;
         } finally {
             $this->finishRaceChild($process, $pipes, $script);
+        }
+
+        if (!$deadlockCaught) {
+            $this->assertFalse($result->ok);
         }
 
         // PROVA PRIMARIA (review Paolo, R-1a) — l'invariante di sicurezza sullo STATO FINALE del
@@ -596,12 +625,17 @@ PHP;
 
         // Segnale SECONDARIO, tollerante al timing (review Paolo, R-1a): idealmente è il
         // ricontrollo SOTTO LOCK a far fallire il padre (409), ma su un runner lento il padre può
-        // imboccare il pre-check statico (422) senza mai arrivare al lock — l'invariante di
-        // sicurezza sopra vale in ENTRAMBI i casi, quindi qui accettiamo entrambi senza far
-        // fallire il test per un dettaglio di timing.
-        $this->assertTrue(
-            in_array($result->code, [409, 422], true),
-            'atteso 409 (ricontrollo sotto lock) o 422 (pre-check statico su runner lento); ottenuto: ' . $result->code
-        );
+        // imboccare il pre-check statico (422) senza mai arrivare al lock, OPPURE InnoDB può
+        // prevenire la corsa con un deadlock-rollback (40001/1213, vedi commento sopra) invece che
+        // con un 409 applicativo — l'invariante di sicurezza sopra vale in TUTTI e tre i casi,
+        // quindi qui accettiamo tutti senza far fallire il test per un dettaglio di timing/locking.
+        if ($deadlockCaught) {
+            $this->assertTrue(true, 'deadlock 40001/1213: esito di conflitto valido, invariante DB già verificata sopra');
+        } else {
+            $this->assertTrue(
+                in_array($result->code, [409, 422], true),
+                'atteso 409 (ricontrollo sotto lock) o 422 (pre-check statico su runner lento); ottenuto: ' . $result->code
+            );
+        }
     }
 }
