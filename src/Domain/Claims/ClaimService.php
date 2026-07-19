@@ -79,7 +79,8 @@ final class ClaimService
         if ($req['status'] !== 'pending') {
             return ServiceResult::fail(I18n::t('admin.claims.err_not_pending'), 422);
         }
-        // Ricontrolli anti-corsa: il profilo deve essere ancora libero e il richiedente ancora senza profilo.
+        // Pre-check "best effort" (senza lock): scarta i casi palesemente invalidi SENZA aprire una
+        // transazione. NON è autoritativo: i ricontrolli anti-corsa veri girano sotto lock qui sotto.
         if (($req['claim_status'] ?? 'claimed') !== 'unclaimed' || $req['profile_owner_id'] !== null) {
             return ServiceResult::fail(I18n::t('admin.claims.err_taken'), 422);
         }
@@ -87,17 +88,49 @@ final class ClaimService
             return ServiceResult::fail(I18n::t('admin.claims.err_user_has_profile'), 422);
         }
 
-        // Atomico: trasferimento proprietà + owner-row autoritativa in profile_members (come
-        // registrazione/PageService) + moderazione, tutto-o-niente. La owner-row allinea il claim al
-        // modello multi-profilo: l'authz non resta più appesa al solo fallback denormalizzato user_id.
+        // Atomico: rivalidazione sotto lock + trasferimento proprietà + owner-row autoritativa in
+        // profile_members (come registrazione/PageService) + moderazione, tutto-o-niente. La owner-row
+        // allinea il claim al modello multi-profilo: l'authz non resta appesa al solo user_id denormalizzato.
         $profileId  = (int) $req['profile_id'];
         $newOwnerId = (int) $req['user_id'];
-        Db::transaction(Db::connection(), function () use ($profileId, $newOwnerId, $requestId, $adminId) {
+
+        // I ricontrolli critici stanno DENTRO la transazione con SELECT ... FOR UPDATE (anti-TOCTOU).
+        // Ordine di lock deterministico per evitare deadlock: profilo → richiesta → utente.
+        //  - il lock sul PROFILO serializza due approve sullo stesso profilo (chi arriva secondo lo
+        //    trova già `claimed` e aborta) ed è preso PER PRIMO così nessuno tiene lock sulle richieste
+        //    mentre attende il profilo (evita il ciclo profilo↔richiesta con rejectOtherPending);
+        //  - il lock sulla RICHIESTA serializza due decisioni sulla stessa richiesta;
+        //  - il lock sull'UTENTE serializza due approve dello stesso richiedente su profili diversi
+        //    (chi arriva secondo rivalida userHasProfile sotto lock e aborta).
+        // In conflitto: nessuna scrittura, si torna 409 e la tx si chiude committando solo letture.
+        $conflict = Db::transaction(Db::connection(), function () use ($profileId, $newOwnerId, $requestId, $adminId): ?ServiceResult {
+            $profile = $this->claims->lockProfileForClaim($profileId);
+            if ($profile === null) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_notfound'), 404);
+            }
+            if (($profile['claim_status'] ?? 'claimed') !== 'unclaimed' || $profile['user_id'] !== null) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_taken'), 409);
+            }
+            if ($this->claims->lockRequestStatus($requestId) !== 'pending') {
+                return ServiceResult::fail(I18n::t('admin.claims.err_not_pending'), 409);
+            }
+            if (!$this->claims->lockUserExists($newOwnerId)) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_notfound'), 404);
+            }
+            if ($this->profiles->userHasProfile($newOwnerId)) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_user_has_profile'), 409);
+            }
+
             $this->profiles->assignOwner($profileId, $newOwnerId);
             $this->members->addMember($profileId, $newOwnerId, 'owner', null);
             $this->claims->markReviewed($requestId, 'approved', null, $adminId);
             $this->claims->rejectOtherPending($profileId, $requestId, $adminId, I18n::t('admin.claims.auto_reject'));
+            return null; // successo: nessun conflitto
         });
+
+        if ($conflict instanceof ServiceResult) {
+            return $conflict; // corsa persa sotto lock: stato cambiato nel frattempo, nessuna scrittura
+        }
 
         $this->audit->record($adminId, 'claim.approve', 'profile', (int) $req['profile_id'], [
             'request_id' => $requestId,
