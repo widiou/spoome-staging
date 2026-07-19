@@ -229,7 +229,7 @@ final class ClaimServiceTest extends TestCase
             PDO::ATTR_EMULATE_PREPARES   => false,
         ];
 
-        return new class(
+        return new class (
             (string) getenv('SPOOME_TEST_DSN'),
             (string) getenv('SPOOME_TEST_USER'),
             (string) getenv('SPOOME_TEST_PASS'),
