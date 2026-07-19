@@ -169,7 +169,7 @@ final class ProfileAttributes
      * Descrittore di sezioni abilitate per tipo (single source per show + edit).
      * Additivo: le sezioni "personali" (skill/esperienze) sono nascoste per org e fan,
      * dove leggono male; il palmarès resta per gli org (trofei dell'entità).
-     * @return array{attributes:bool,skills:bool,experiences:bool,achievements:bool,links:bool}
+     * @return array{attributes:bool,skills:bool,experiences:bool,achievements:bool,links:bool,roster:bool,career:bool,org_career:bool}
      */
     public static function sections(string $typeKey, bool $isOrg): array
     {

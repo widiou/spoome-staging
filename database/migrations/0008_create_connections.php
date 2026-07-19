@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Connessioni reciproche (rete professionale, stile LinkedIn): una riga per coppia con stato.
  * requester → addressee, status pending/accepted. L'unicità della coppia (in un verso) è a livello DB;
  * l'assenza del verso inverso è garantita dall'applicazione (si controllano entrambe le direzioni).
  * Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

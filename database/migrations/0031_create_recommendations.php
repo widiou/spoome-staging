@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Recommendations (raccomandazioni LinkedIn-style) — testo libero che una persona connessa scrive
  * per un'altra, mostrato sul profilo del destinatario SOLO dopo la sua approvazione.
@@ -15,7 +16,7 @@
  * "visibili di un profilo" sia "pending di un profilo" (prefisso). CHECK author<>recipient non è
  * affidabile su MySQL vecchi → enforce nel Service. Idempotente (information_schema + IF NOT EXISTS).
  */
-return new class {
+return new class () {
     private function tableExists(\PDO $pdo, string $name): bool
     {
         $stmt = $pdo->prepare(

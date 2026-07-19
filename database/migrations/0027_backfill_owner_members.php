@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Horizon 0 · consolidamento authz — chiusura del "doppio-path" di ownership.
  *
@@ -11,7 +12,7 @@
  * Idempotente (INSERT IGNORE su UNIQUE uq_member): rieseguibile senza effetti. I profili unclaimed
  * (user_id NULL, claim flow) restano correttamente senza membri — nessun controllore ancora.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         // Ogni profilo posseduto e privo di owner-row → membro 'owner'. Ricopre gli iscritti post-0023.

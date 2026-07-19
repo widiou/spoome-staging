@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Loader minimale di variabili d'ambiente da .env (nessuna dipendenza esterna).
  * Idempotente. Popola $_ENV e getenv(). Espone l'helper globale env().

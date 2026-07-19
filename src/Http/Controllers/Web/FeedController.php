@@ -106,7 +106,9 @@ final class FeedController extends Controller
     public function like(Request $request): void
     {
         $me = $this->writeActor($request);
-        if ($me === null) { return; }
+        if ($me === null) {
+            return;
+        }
         $result = (new \Spoome\Domain\Feed\PostEngagementService())
             ->toggleLike($me->id, (int) $request->param('id'), $request->ip());
         $this->respond($request, $result, 'feed');
@@ -115,7 +117,9 @@ final class FeedController extends Controller
     public function comment(Request $request): void
     {
         $me = $this->writeActor($request);
-        if ($me === null) { return; }
+        if ($me === null) {
+            return;
+        }
         $result = (new \Spoome\Domain\Feed\PostEngagementService())
             ->comment($me->id, (int) $request->param('id'), (string) $request->input('body', ''), $request->ip());
         $this->respond($request, $result, 'feed');
@@ -124,7 +128,9 @@ final class FeedController extends Controller
     public function deleteComment(Request $request): void
     {
         $me = $this->writeActor($request);
-        if ($me === null) { return; }
+        if ($me === null) {
+            return;
+        }
         $isAdmin = CurrentUser::resolve($request)->isAdmin();
         $result = (new \Spoome\Domain\Feed\PostEngagementService())
             ->deleteComment($me->id, (int) $request->param('id'), $isAdmin);

@@ -1,9 +1,10 @@
 <?php
+
 /**
  * Seed della tassonomia sport (dati di riferimento, non contenuto utente). Idempotente.
  * Categorie e discipline principali del panorama sportivo italiano.
  */
-return new class {
+return new class () {
     private const SPORTS = [
         // [nome, categoria]
         ['Calcio', 'Sport di squadra'],

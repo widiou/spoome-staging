@@ -58,7 +58,9 @@ final class FeedController extends ApiController
     public function like(Request $request): void
     {
         $me = $this->writeActorId($request);
-        if ($me === null) { return; }
+        if ($me === null) {
+            return;
+        }
         $this->emitJson((new \Spoome\Domain\Feed\PostEngagementService())->toggleLike($me, (int) $request->param('id'), $request->ip()));
     }
 
@@ -66,7 +68,9 @@ final class FeedController extends ApiController
     public function comment(Request $request): void
     {
         $me = $this->writeActorId($request);
-        if ($me === null) { return; }
+        if ($me === null) {
+            return;
+        }
         $this->emitJson((new \Spoome\Domain\Feed\PostEngagementService())->comment($me, (int) $request->param('id'), (string) $request->input('body', ''), $request->ip()));
     }
 
@@ -74,7 +78,9 @@ final class FeedController extends ApiController
     public function deleteComment(Request $request): void
     {
         $user = $this->requireBearerUser($request);
-        if ($user === null) { return; }
+        if ($user === null) {
+            return;
+        }
         $ctx = new ActingContext();
         $me  = $ctx->resolveForWrite($request, $user, 'editor');
         if ($me === null) {

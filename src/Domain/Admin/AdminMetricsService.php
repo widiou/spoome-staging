@@ -61,7 +61,7 @@ final class AdminMetricsService
 
         return [
             'total'   => $this->scalar('SELECT COUNT(*) FROM profiles'),
-            'by_type' => array_map(static fn($r) => [
+            'by_type' => array_map(static fn ($r) => [
                 'label' => (string) $r['label'],
                 'count' => (int) $r['cnt'],
             ], $rows),

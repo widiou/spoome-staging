@@ -87,8 +87,12 @@ final class NewsIngestionService
         // RSS 2.0: <rss><channel><item>
         if (isset($xml->channel)) {
             foreach ($xml->channel->item as $item) {
-                if ($count++ >= self::MAX_PER_FEED) { break; }
-                $added += $this->store($sourceId, $sportId,
+                if ($count++ >= self::MAX_PER_FEED) {
+                    break;
+                }
+                $added += $this->store(
+                    $sourceId,
+                    $sportId,
                     (string) $item->title,
                     (string) $item->link,
                     (string) $item->description,
@@ -102,11 +106,16 @@ final class NewsIngestionService
         // Atom: <feed><entry>
         if (isset($xml->entry)) {
             foreach ($xml->entry as $entry) {
-                if ($count++ >= self::MAX_PER_FEED) { break; }
+                if ($count++ >= self::MAX_PER_FEED) {
+                    break;
+                }
                 $link = '';
                 foreach ($entry->link as $l) {
                     $rel = (string) ($l['rel'] ?? '');
-                    if ($rel === '' || $rel === 'alternate') { $link = (string) ($l['href'] ?? ''); break; }
+                    if ($rel === '' || $rel === 'alternate') {
+                        $link = (string) ($l['href'] ?? '');
+                        break;
+                    }
                 }
                 $summary = (string) ($entry->summary ?? $entry->content ?? '');
                 $date    = (string) ($entry->published ?? $entry->updated ?? '');
@@ -120,13 +129,18 @@ final class NewsIngestionService
     private function rssImage(\SimpleXMLElement $item): ?string
     {
         $enc = $item->enclosure['url'] ?? null;
-        if ($enc !== null && $this->looksImage((string) $item->enclosure['type'] ?? '', (string) $enc)) {
+        // (string) di un attributo SimpleXML assente è già '' (mai null): niente ?? da applicare dopo il cast.
+        if ($enc !== null && $this->looksImage((string) $item->enclosure['type'], (string) $enc)) {
             return (string) $enc;
         }
         foreach (['media', 'content'] as $ns) {
             $media = $item->children('http://search.yahoo.com/mrss/');
-            if (isset($media->thumbnail)) { return (string) ($media->thumbnail['url'] ?? '') ?: null; }
-            if (isset($media->content))   { return (string) ($media->content['url'] ?? '') ?: null; }
+            if (isset($media->thumbnail)) {
+                return (string) ($media->thumbnail['url'] ?? '') ?: null;
+            }
+            if (isset($media->content)) {
+                return (string) ($media->content['url'] ?? '') ?: null;
+            }
             break;
         }
         return null;
@@ -153,7 +167,9 @@ final class NewsIngestionService
         $pub = null;
         if ($date !== '') {
             $ts = strtotime($date);
-            if ($ts !== false) { $pub = date('Y-m-d H:i:s', $ts); }
+            if ($ts !== false) {
+                $pub = date('Y-m-d H:i:s', $ts);
+            }
         }
         return $this->news->insertItem($sourceId, $link, $title, $summary, $image, $sportId, $pub);
     }

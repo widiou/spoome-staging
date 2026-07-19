@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Checkpoint 3 · P1 — Campi descrittivi type-specific.
  * Popola `profile_types.attributes_schema` (colonna già esistente) con la whitelist di campi
  * per tipo che guida sia l'editor sia la pagina pubblica. Data-only, reversibile, nessun DDL.
  * atleta/fan restano senza campi (profilo CV / minimale).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $schemas = [

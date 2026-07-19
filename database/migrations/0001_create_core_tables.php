@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Schema fondante Spoome v2: autenticazione, token API, tassonomia sport, tipi profilo, profili.
  * Idempotente (CREATE TABLE IF NOT EXISTS). Sicurezza: token salvati come HASH (mai in chiaro),
  * unique/index sulle colonne sensibili, FK con ON DELETE coerenti, tabella login_attempts per il throttling.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $charset = 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';

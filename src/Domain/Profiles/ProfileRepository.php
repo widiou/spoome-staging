@@ -32,7 +32,7 @@ final class ProfileRepository
     /** @return string[] chiavi dei tipi attivi (per whitelist in validazione). Derivato dalla cache. */
     public function activeTypeKeys(): array
     {
-        return array_map(static fn($t) => (string) $t['key'], $this->activeTypes());
+        return array_map(static fn ($t) => (string) $t['key'], $this->activeTypes());
     }
 
     /**
@@ -46,14 +46,14 @@ final class ProfileRepository
     {
         return array_values(array_filter(
             $this->activeTypes(),
-            static fn($t) => (int) $t['is_organization'] === 0
+            static fn ($t) => (int) $t['is_organization'] === 0
         ));
     }
 
     /** @return string[] chiavi dei tipi-persona attivi (whitelist di validazione della registrazione). */
     public function activePersonalTypeKeys(): array
     {
-        return array_map(static fn($t) => (string) $t['key'], $this->activePersonalTypes());
+        return array_map(static fn ($t) => (string) $t['key'], $this->activePersonalTypes());
     }
 
     /** True se la chiave-tipo è di un'organizzazione (guardia server-side anti doppio-path). */

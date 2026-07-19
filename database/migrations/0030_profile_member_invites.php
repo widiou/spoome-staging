@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Inviti a diventare MEMBRO di una pagina (org): "invita per handle" del profilo personale.
  *
@@ -24,7 +25,7 @@
  * Non distruttivo e reversibile (down = DROP). Idempotente (CREATE TABLE IF NOT EXISTS + guardia
  * information_schema): rieseguibile senza errori.
  */
-return new class {
+return new class () {
     private function tableExists(\PDO $pdo, string $table): bool
     {
         $stmt = $pdo->prepare(

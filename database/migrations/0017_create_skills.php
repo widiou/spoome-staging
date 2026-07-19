@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Checkpoint 2 · F2 — Competenze + Endorsement.
  * Competenze free-text per profilo (coerenti col pattern delle sotto-entità profilo)
  * con endorsement dalle connessioni; contatore denormalizzato `endorsements_count`.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS profile_skills (

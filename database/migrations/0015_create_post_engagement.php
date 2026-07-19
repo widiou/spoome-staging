@@ -1,9 +1,10 @@
 <?php
+
 /**
  * Vivacità del feed: like e commenti sui post, con contatori denormalizzati su `posts`
  * (letti nella timeline senza COUNT live, coerenti con la linea del progetto).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS post_likes (

@@ -1,9 +1,10 @@
 <?php
+
 /**
  * Tabella `media`: file caricati dagli utenti (avatar, cover, documenti…). Idempotente.
  * L'avatar del profilo è referenziato da profiles.avatar_media_id (FK, ON DELETE SET NULL).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

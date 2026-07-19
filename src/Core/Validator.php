@@ -65,7 +65,7 @@ final class Validator
                 'min'      => mb_strlen((string) $value) >= (int) $param,
                 'max'      => mb_strlen((string) $value) <= (int) $param,
                 'same'     => ($value === ($this->data[$param] ?? null)),
-                'confirmed'=> ($value === ($this->data[$field . '_confirmation'] ?? null)),
+                'confirmed' => ($value === ($this->data[$field . '_confirmation'] ?? null)),
                 'in'       => in_array((string) $value, explode(',', (string) $param), true),
                 'regex'    => (bool) preg_match($param, (string) $value),
                 default    => true,

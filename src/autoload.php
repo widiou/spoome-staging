@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Autoloader PSR-4 per il namespace "Spoome\" → cartella src/.
  * Niente Composer sul server (SiteGround shared): registrazione manuale, idempotente.

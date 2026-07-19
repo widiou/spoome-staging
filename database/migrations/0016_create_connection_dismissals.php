@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Checkpoint 2 · F1 — Scoperta "Persone che potresti conoscere".
  * Tabella dei suggerimenti ignorati (bottone "Ignora") + indice città per il fallback
  * cold-start del discovery di 2° grado.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS connection_dismissals (

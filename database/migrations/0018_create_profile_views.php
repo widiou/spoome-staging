@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Checkpoint 2 · F3 — "Chi ha visto il tuo profilo".
  * Roll-up (una riga per coppia viewer→viewed, upsert ON DUPLICATE KEY): crescita limitata
  * O(coppie distinte), non O(visite). PK (viewed, viewer) copre la query calda del proprietario.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS profile_views (

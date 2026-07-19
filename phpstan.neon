@@ -5,4 +5,17 @@ parameters:
     excludePaths:
         - src/autoload.php
     bootstrapFiles:
+        # config/env.php espone l'helper globale env() usato da Core/Config.php: senza questo
+        # bootstrap PHPStan non lo vede e segnala "Function env not found" (falso positivo
+        # strutturale, non un bug — la funzione esiste ed è caricata a runtime da bootstrap.php).
         - src/autoload.php
+        - config/env.php
+    ignoreErrors:
+        -
+            # Falso positivo noto di PHPStan sul narrowing di PDO::inTransaction() attraverso
+            # try/catch quando la stessa chiamata compare prima del try e di nuovo nel catch
+            # (phpstan/phpstan#11235). Il controllo in Db::transaction() è una guardia difensiva
+            # reale: non è codice morto a runtime, solo per l'analisi statica.
+            message: '#^If condition is always false\.$#'
+            path: src/Core/Db.php
+            count: 1

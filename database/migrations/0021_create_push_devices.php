@@ -1,9 +1,10 @@
 <?php
+
 /**
  * Realtime Phase 1 — registro device-token per il push nativo (§4.3 realtime-spec).
  * Scaffolding: nessun invio APNs/FCM ancora. UNIQUE(platform, token) per upsert idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS push_devices (

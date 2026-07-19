@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Checkpoint 3 · P2 — Affiliazioni atleta↔organizzazione (la keystone del network sportivo).
  *
@@ -19,7 +20,7 @@
  * (v1). Indici dedicati per le due query calde: roster (per org) e militanza (per membro).
  * FK ON DELETE CASCADE su entrambi i lati (coerente con connections/follows).
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

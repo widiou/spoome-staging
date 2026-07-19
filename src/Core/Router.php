@@ -21,11 +21,26 @@ final class Router
         ];
     }
 
-    public function get(string $p, mixed $h, array $m = []): void    { $this->add('GET', $p, $h, $m); }
-    public function post(string $p, mixed $h, array $m = []): void   { $this->add('POST', $p, $h, $m); }
-    public function put(string $p, mixed $h, array $m = []): void    { $this->add('PUT', $p, $h, $m); }
-    public function patch(string $p, mixed $h, array $m = []): void  { $this->add('PATCH', $p, $h, $m); }
-    public function delete(string $p, mixed $h, array $m = []): void { $this->add('DELETE', $p, $h, $m); }
+    public function get(string $p, mixed $h, array $m = []): void
+    {
+        $this->add('GET', $p, $h, $m);
+    }
+    public function post(string $p, mixed $h, array $m = []): void
+    {
+        $this->add('POST', $p, $h, $m);
+    }
+    public function put(string $p, mixed $h, array $m = []): void
+    {
+        $this->add('PUT', $p, $h, $m);
+    }
+    public function patch(string $p, mixed $h, array $m = []): void
+    {
+        $this->add('PATCH', $p, $h, $m);
+    }
+    public function delete(string $p, mixed $h, array $m = []): void
+    {
+        $this->add('DELETE', $p, $h, $m);
+    }
 
     public function dispatch(Request $request): void
     {

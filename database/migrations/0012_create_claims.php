@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Modello di rivendicazione (claim) dei profili.
  * - `profiles.user_id` diventa NULLABLE: un profilo "non rivendicato" (seed della piattaforma)
@@ -7,7 +8,7 @@
  * - `profiles.claim_status`: unclaimed | claimed (default claimed: le righe esistenti sono già possedute).
  * - `claim_requests`: richieste utente→profilo con esito moderato dall'admin.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         // user_id nullable (l'FK fk_profiles_user resta: la colonna resta INT).

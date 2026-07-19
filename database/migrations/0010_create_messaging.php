@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Messaggistica diretta 1:1. Una `conversations` per coppia (ordinata: profile_a_id < profile_b_id).
  * I `messages` appartengono a una conversazione; `read_at` traccia la lettura del destinatario.
  * L'autorizzazione (solo tra profili connessi) è imposta a livello applicativo. Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

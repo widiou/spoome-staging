@@ -1,9 +1,10 @@
 <?php
+
 /**
  * FK dell'immagine di copertina sul profilo (profiles.cover_media_id → media, ON DELETE SET NULL).
  * La colonna cover_media_id è stata creata in 0001. Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $exists = $pdo->query(

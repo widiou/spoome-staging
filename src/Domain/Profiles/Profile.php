@@ -19,7 +19,8 @@ final class Profile
         public readonly ?int $sportId = null,
         public readonly ?string $verifiedAt = null,
         public readonly string $visibility = 'public',
-    ) {}
+    ) {
+    }
 
     public static function fromRow(array $row): self
     {

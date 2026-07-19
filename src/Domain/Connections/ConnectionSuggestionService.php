@@ -38,7 +38,7 @@ final class ConnectionSuggestionService
                 return $primary;
             }
 
-            $excludeIds = array_map(static fn(array $r): int => (int) $r['id'], $primary);
+            $excludeIds = array_map(static fn (array $r): int => (int) $r['id'], $primary);
             $need = $limit - count($primary);
             $fallback = $this->repo->fallbackBySportOrCity($profileId, $sportId, $city, $excludeIds, $need);
 

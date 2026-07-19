@@ -180,7 +180,9 @@ final class SafeHttpFetcher
         ];
         foreach ($ranges as [$net, $bits]) {
             $netLong = ip2long($net);
-            $mask = $bits === 0 ? 0 : (0xFFFFFFFF << (32 - $bits)) & 0xFFFFFFFF;
+            // $bits qui è sempre uno dei prefissi CIDR letterali sopra (mai 0): la formula generale
+            // produce comunque 0 se $bits fosse 0, quindi niente caso speciale da distinguere.
+            $mask = (0xFFFFFFFF << (32 - $bits)) & 0xFFFFFFFF;
             if (($long & $mask) === ($netLong & $mask)) {
                 return true;
             }

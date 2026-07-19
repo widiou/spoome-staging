@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Migrazione 0026 — News di settore (feed RSS di federazioni/organismi iniettate nel feed).
  *

@@ -33,13 +33,14 @@ final class Chart
             }
         }
 
-        $w = self::W; $h = self::H;
+        $w = self::W;
+        $h = self::H;
         $plotH = $h - self::PAD_TOP - self::PAD_BOTTOM;
         $plotW = $w - self::PAD_X * 2;
         $step  = $plotW / ($n - 1);
 
-        $x = static fn(int $i): float => round(self::PAD_X + $i * $step, 1);
-        $y = static fn(float $v) => round(self::PAD_TOP + $plotH - ($v / $max) * $plotH, 1);
+        $x = static fn (int $i): float => round(self::PAD_X + $i * $step, 1);
+        $y = static fn (float $v) => round(self::PAD_TOP + $plotH - ($v / $max) * $plotH, 1);
 
         $svg = '<svg class="admin-chart-svg" viewBox="0 0 ' . $w . ' ' . $h . '" preserveAspectRatio="none" role="img" aria-hidden="true">';
 
@@ -79,9 +80,14 @@ final class Chart
         if ($n < 2) {
             return '';
         }
-        $max = 1; $min = 0;
-        foreach ($values as $v) { $max = max($max, (int) $v); }
-        $w = 120; $h = 34; $pad = 2;
+        $max = 1;
+        $min = 0;
+        foreach ($values as $v) {
+            $max = max($max, (int) $v);
+        }
+        $w = 120;
+        $h = 34;
+        $pad = 2;
         $step = ($w - $pad * 2) / ($n - 1);
         $pts = [];
         foreach ($values as $i => $v) {

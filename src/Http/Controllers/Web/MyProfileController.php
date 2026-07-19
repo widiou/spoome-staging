@@ -252,10 +252,12 @@ final class MyProfileController extends Controller
 
         $done  = count(array_filter($checks));
         $total = count($checks);
-        $missing = array_keys(array_filter($checks, static fn($v) => !$v));
+        $missing = array_keys(array_filter($checks, static fn ($v) => !$v));
 
         return [
-            'pct'     => $total > 0 ? (int) round($done / $total * 100) : 100,
+            // $checks ha sempre almeno una voce in ogni branch (fan/org/atleta) quindi $total > 0:
+            // niente guard divisione-per-zero (dead branch, PHPStan livello 5 lo confermava già).
+            'pct'     => (int) round($done / $total * 100),
             'missing' => $missing,
         ];
     }

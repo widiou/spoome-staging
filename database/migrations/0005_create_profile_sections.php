@@ -1,9 +1,10 @@
 <?php
+
 /**
  * Sotto-entità del profilo (CV sportivo): esperienze, palmarès (risultati), link/social.
  * Ogni riga appartiene a un profilo (FK ON DELETE CASCADE). Idempotente.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         $pdo->exec(

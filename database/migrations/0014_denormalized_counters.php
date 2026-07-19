@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Contatori denormalizzati per eliminare i COUNT(*) live dai percorsi caldi
  * (badge di nav su OGNI pagina, contatori nella hero profilo, statistiche).
  * Mantenuti in modo incrementale dai Service alle mutazioni; backfill iniziale qui.
  * GREATEST(0, …) nei decrementi previene valori negativi in caso di race.
  */
-return new class {
+return new class () {
     public function up(\PDO $pdo): void
     {
         foreach ([
@@ -15,7 +16,10 @@ return new class {
             'ALTER TABLE profiles ADD COLUMN unread_messages INT NOT NULL DEFAULT 0',
             'ALTER TABLE users ADD COLUMN unread_notifications INT NOT NULL DEFAULT 0',
         ] as $sql) {
-            try { $pdo->exec($sql); } catch (\PDOException $e) { /* colonna già presente */ }
+            try {
+                $pdo->exec($sql);
+            } catch (\PDOException $e) { /* colonna già presente */
+            }
         }
         $this->backfill($pdo);
     }
@@ -46,7 +50,10 @@ return new class {
             'ALTER TABLE profiles DROP COLUMN unread_messages',
             'ALTER TABLE users DROP COLUMN unread_notifications',
         ] as $sql) {
-            try { $pdo->exec($sql); } catch (\PDOException $e) {}
+            try {
+                $pdo->exec($sql);
+            } catch (\PDOException $e) {
+            }
         }
     }
 };
