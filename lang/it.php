@@ -731,6 +731,7 @@ return [
     'admin.claims.err_not_pending'=> 'La richiesta non è più in attesa.',
     'admin.claims.err_taken'      => 'Il profilo è già stato rivendicato nel frattempo.',
     'admin.claims.err_user_has_profile' => 'Il richiedente possiede già un profilo.',
+    'admin.claims.err_conflict'   => 'Operazione in conflitto con un\'altra in corso. Riprova.',
 
     // ---- Notifiche ----
     'nav.notifications'             => 'Notifiche',

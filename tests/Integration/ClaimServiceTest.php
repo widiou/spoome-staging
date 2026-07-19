@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Spoome\Tests\Integration;
 
 use PDO;
+use PDOException;
+use PDOStatement;
 use PHPUnit\Framework\TestCase;
+use Spoome\Domain\Claims\ClaimRepository;
 use Spoome\Domain\Claims\ClaimService;
 
 /**
@@ -204,6 +207,53 @@ final class ClaimServiceTest extends TestCase
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    /**
+     * PDO "avvelenato" per i test di conflitto: una connessione REALE al DB di test in cui
+     * SOLO la query di lock del profilo (`lockProfileForClaim`, l'unica con
+     * `profiles WHERE id = :pid FOR UPDATE`) lancia $toThrow; ogni altra query passa a PDO reale.
+     *
+     * Perché il seam è sul PDO e non sulla repo: `ClaimRepository` è `final` (incapsulamento di
+     * produzione) → non si può sottoclassare né mockare. Iniettando questo driver in una repo/
+     * service VERI testiamo il codice reale (repo + guard runGuardedTransaction) con il solo
+     * conflitto InnoDB simulato — più fedele del subclassing. Lanciamo da `prepare()` (non da un
+     * PDOStatement finto): il costruttore di PDOStatement è privato, non è instanziabile con `new`,
+     * e per la guardia conta solo che una PDOException col giusto errno risalga dalla transazione.
+     */
+    private function poisonedPdoOnProfileLock(PDOException $toThrow): PDO
+    {
+        $opts = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+
+        return new class (
+            (string) getenv('SPOOME_TEST_DSN'),
+            (string) getenv('SPOOME_TEST_USER'),
+            (string) getenv('SPOOME_TEST_PASS'),
+            $opts,
+            $toThrow
+        ) extends PDO {
+            private PDOException $toThrow;
+
+            /** @param array<int,mixed> $opts */
+            public function __construct(string $dsn, string $user, string $pass, array $opts, PDOException $toThrow)
+            {
+                parent::__construct($dsn, $user, $pass, $opts);
+                $this->toThrow = $toThrow;
+            }
+
+            /** @param array<mixed> $options */
+            public function prepare(string $query, array $options = []): PDOStatement|false
+            {
+                if (str_contains($query, 'profiles WHERE id = :pid FOR UPDATE')) {
+                    throw $this->toThrow;
+                }
+                return parent::prepare($query, $options);
+            }
+        };
     }
 
     /* --------------------------------------------------------------------------- request() ---- */
@@ -476,5 +526,135 @@ final class ClaimServiceTest extends TestCase
         $second = $svc->reject($this->adminId, $requestId, null, '4.4.5.3');
         $this->assertFalse($second->ok);
         $this->assertSame(422, $second->code);
+    }
+
+    /* --------------------------------------------------------- #27 hardening corse claim ---- */
+
+    /**
+     * #27 — guard TOCTOU su ClaimRepository::markReviewed(): la UPDATE porta `AND status = 'pending'`
+     * e ritorna false quando 0 righe sono toccate. È il meccanismo che impedisce a un `reject`
+     * concorrente (arrivato DOPO un `approve`) di sovrascrivere una richiesta già decisa e
+     * rinotificare l'utente. Verifica deterministica a livello di repository (nessuna concorrenza
+     * reale necessaria): simuliamo l'esito "già approvata" e proviamo a marcarla `rejected`.
+     */
+    public function testMarkReviewedOnlyTransitionsPendingRequestsAndReportsConflict(): void
+    {
+        $profileId = $this->insertProfile(null, 'unclaimed');
+        $userId    = $this->insertUser('toctou@demo.spoome.local');
+        $svc       = $this->service();
+        $req       = $svc->request($userId, $profileId, null, '5.5.1.1');
+        $requestId = (int) $req->data['id'];
+
+        $repo = new ClaimRepository($this->pdo);
+
+        // pending → approved: la riga è pending, la transizione avviene e riporta true.
+        $this->assertTrue($repo->markReviewed($requestId, 'approved', null, $this->adminId));
+        $this->assertSame('approved', $this->claimRequestRow($requestId)['status']);
+
+        // Il reject concorrente "in ritardo": la riga NON è più pending → 0 righe, ritorna false,
+        // lo stato NON regredisce a 'rejected' e la nota dell'approvazione resta intatta.
+        $this->assertFalse($repo->markReviewed($requestId, 'rejected', 'in ritardo', $this->adminId));
+        $row = $this->claimRequestRow($requestId);
+        $this->assertSame('approved', $row['status'], 'il guard AND status=pending impedisce l\'overwrite');
+        $this->assertNull($row['review_note']);
+    }
+
+    /**
+     * #27 — reject() sotto lock/transazione (come approve): non deve sovrascrivere né rinotificare
+     * una richiesta che risulta già decisa. Qui la corsa è già completata (simulazione
+     * deterministica: la richiesta è stata approvata fuori dal Service) e reject() deve fallire
+     * lasciando la richiesta 'approved' e SENZA creare una notifica di rifiuto per l'utente.
+     */
+    public function testRejectDoesNotOverwriteOrRenotifyAnAlreadyApprovedRequest(): void
+    {
+        $profileId = $this->insertProfile(null, 'unclaimed');
+        $userId    = $this->insertUser('vintadaaltro@demo.spoome.local');
+        $svc       = $this->service();
+        $req       = $svc->request($userId, $profileId, null, '5.5.3.1');
+        $requestId = (int) $req->data['id'];
+
+        // Un altro admin ha approvato la richiesta un istante prima.
+        $approve = $svc->approve($this->adminId, $requestId, '5.5.3.2');
+        $this->assertTrue($approve->ok);
+
+        // Il reject "in ritardo" deve fallire senza toccare lo stato.
+        $reject = $svc->reject($this->adminId, $requestId, 'troppo tardi', '5.5.3.3');
+        $this->assertFalse($reject->ok, 'un reject dopo l\'approve non deve riuscire');
+
+        $this->assertSame('approved', $this->claimRequestRow($requestId)['status']);
+
+        // Nessuna notifica di rifiuto: l'utente è appena diventato owner, non va rinotificato.
+        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = :u AND type = 'claim_rejected'");
+        $stmt->execute(['u' => $userId]);
+        $this->assertSame(0, (int) $stmt->fetchColumn());
+
+        // Ownership intatta: resta assegnata all'utente approvato.
+        $stmt = $this->pdo->prepare('SELECT user_id, claim_status FROM profiles WHERE id = :id');
+        $stmt->execute(['id' => $profileId]);
+        $profile = $stmt->fetch();
+        $this->assertSame($userId, (int) $profile['user_id']);
+        $this->assertSame('claimed', $profile['claim_status']);
+    }
+
+    /**
+     * #27 — un deadlock InnoDB (SQLSTATE 40001 / errno 1213) sollevato DENTRO la transazione di
+     * approve() deve tradursi in un ServiceResult di conflitto 409 (che il controller mappa a HTTP
+     * 409), NON propagarsi come PDOException fino a un 500. Iniettiamo un PDO avvelenato (query di
+     * lock del profilo → deadlock) in una ClaimService/Repository VERE, dopo che i pre-check statici
+     * sono passati; verifichiamo il codice 409 e che il rollback non abbia lasciato scritture.
+     */
+    public function testApproveMapsInnodbDeadlockToConflict409NotUncaughtException(): void
+    {
+        $profileId = $this->insertProfile(null, 'unclaimed');
+        $userId    = $this->insertUser('deadlock@demo.spoome.local');
+        $req       = $this->service()->request($userId, $profileId, null, '5.5.2.1');
+        $requestId = (int) $req->data['id'];
+
+        // Deadlock 1213 (come osservato in CI sulla corsa reale). getCode() '40001' O errno 1213.
+        $deadlock = new PDOException('SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when trying to get lock', 40001);
+        $deadlock->errorInfo = ['40001', 1213, 'Deadlock found when trying to get lock; try restarting transaction'];
+        $service = new ClaimService(new ClaimRepository($this->poisonedPdoOnProfileLock($deadlock)));
+
+        $result = $service->approve($this->adminId, $requestId, '5.5.2.2');
+
+        $this->assertFalse($result->ok, 'un deadlock è un conflitto, non un successo');
+        $this->assertSame(409, $result->code, 'il deadlock deve diventare 409, non propagarsi come 500');
+
+        // Rollback pulito: nessuna scrittura, la richiesta resta pending e il profilo libero.
+        $this->assertSame('pending', $this->claimRequestRow($requestId)['status']);
+        $stmt = $this->pdo->prepare('SELECT user_id FROM profiles WHERE id = :id');
+        $stmt->execute(['id' => $profileId]);
+        $this->assertNull($stmt->fetchColumn());
+    }
+
+    /**
+     * #27 (P2-a) — anche un lock-wait timeout InnoDB (errno 1205) su una riga contesa è un esito di
+     * corsa legittimo e deve diventare un ServiceResult di conflitto 409, non un 500. Gemello del
+     * test del deadlock: stesso seam (PDO avvelenato), ma la query di lock scade invece di deadlockare.
+     */
+    public function testApproveMapsLockWaitTimeoutToConflict409NotUncaughtException(): void
+    {
+        $profileId = $this->insertProfile(null, 'unclaimed');
+        $userId    = $this->insertUser('lockwait@demo.spoome.local');
+        $req       = $this->service()->request($userId, $profileId, null, '5.5.4.1');
+        $requestId = (int) $req->data['id'];
+
+        // Lock-wait timeout: getCode() resta 0 (SQLSTATE HY000 non è un conflitto di per sé), il
+        // riconoscimento passa da errorInfo[1] === 1205. NB: il costruttore PDOException vuole un
+        // int come code, quindi lo lasciamo a 0 e mettiamo lo SQLSTATE solo in messaggio/errorInfo.
+        $timeout = new PDOException('SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction');
+        $timeout->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded; try restarting transaction'];
+        $service = new ClaimService(new ClaimRepository($this->poisonedPdoOnProfileLock($timeout)));
+
+        $result = $service->approve($this->adminId, $requestId, '5.5.4.2');
+
+        $this->assertFalse($result->ok, 'un lock-wait timeout è un conflitto, non un successo');
+        $this->assertSame(409, $result->code, 'il timeout 1205 deve diventare 409, non propagarsi come 500');
+
+        // Rollback pulito: nessuna scrittura, la richiesta resta pending e il profilo libero.
+        $this->assertSame('pending', $this->claimRequestRow($requestId)['status']);
+        $stmt = $this->pdo->prepare('SELECT user_id FROM profiles WHERE id = :id');
+        $stmt->execute(['id' => $profileId]);
+        $this->assertNull($stmt->fetchColumn());
     }
 }
