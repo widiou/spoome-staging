@@ -1,10 +1,7 @@
 <?php
 /**
- * Loader minimale di variabili d'ambiente da file .env (nessuna dipendenza esterna).
- * Idempotente. Popola $_ENV e getenv(). Espone l'helper env().
- *
- * All'inclusione carica automaticamente il .env nella root del progetto
- * (la cartella che contiene questo config/, ossia dirname(__DIR__)).
+ * Loader minimale di variabili d'ambiente da .env (nessuna dipendenza esterna).
+ * Idempotente. Popola $_ENV e getenv(). Espone l'helper globale env().
  */
 
 if (!function_exists('spoome_env_load')) {
@@ -32,11 +29,8 @@ if (!function_exists('spoome_env_load')) {
             if ($key === '') {
                 continue;
             }
-            // Rimuove eventuali virgolette di wrapping
             $len = strlen($value);
-            if ($len >= 2
-                && ($value[0] === '"' || $value[0] === "'")
-                && $value[$len - 1] === $value[0]) {
+            if ($len >= 2 && ($value[0] === '"' || $value[0] === "'") && $value[$len - 1] === $value[0]) {
                 $value = substr($value, 1, -1);
             }
             $_ENV[$key] = $value;
@@ -60,8 +54,5 @@ if (!function_exists('spoome_env_load')) {
     }
 }
 
-// Carica automaticamente il .env della root del progetto.
+// Carica automaticamente il .env della root del progetto (una cartella sopra config/).
 spoome_env_load(dirname(__DIR__) . '/.env');
-
-// Registra l'autoloader PSR-4 per il namespace Spoome\ (src/).
-require_once dirname(__DIR__) . '/src/autoload.php';

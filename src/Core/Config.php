@@ -18,14 +18,14 @@ final class Config
         return (string) \env('APP_ENV', 'production');
     }
 
+    public static function appName(): string
+    {
+        return (string) \env('APP_NAME', 'Spoome');
+    }
+
     public static function isProduction(): bool
     {
         return self::appEnv() === 'production';
-    }
-
-    public static function isStaging(): bool
-    {
-        return self::appEnv() === 'staging';
     }
 
     public static function isDebug(): bool
@@ -33,13 +33,28 @@ final class Config
         return (bool) \env('APP_DEBUG', false);
     }
 
+    /** Prefisso pubblico dell'app (es. "/beta/"). Sempre con slash iniziale e finale. */
     public static function basePath(): string
     {
-        return \defined('BASE_PATH') ? \BASE_PATH : '/network/';
+        $bp = trim((string) \env('BASE_PATH', '/'), '/');
+        return $bp === '' ? '/' : '/' . $bp . '/';
     }
 
+    /** Origin assoluto (senza slash finale), es. "https://spoome.it". APP_URL = solo origin. */
     public static function baseUrl(): string
     {
-        return \defined('BASE_URL') ? \BASE_URL : 'https://spoome.it/network/';
+        return rtrim((string) \env('APP_URL', ''), '/');
+    }
+
+    /** URL assoluto completo per una rotta interna, incluso il BASE_PATH. Per email/redirect assoluti. */
+    public static function absoluteUrl(string $path = ''): string
+    {
+        return self::baseUrl() . rtrim(self::basePath(), '/') . '/' . ltrim($path, '/');
+    }
+
+    /** Prefisso delle rotte API (default "/api/v1"). */
+    public static function apiPrefix(): string
+    {
+        return '/' . trim((string) \env('API_PREFIX', '/api/v1'), '/');
     }
 }

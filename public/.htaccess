@@ -1,0 +1,31 @@
+# Front controller quando la docroot punta a public/ (stato "pulito" finale).
+# Gli header di sicurezza sono duplicati QUI (oltre che nel .htaccess di root e in PHP via
+# SecurityHeaders) così lo spostamento della docroot su public/ non fa sparire CSP/header.
+Options -Indexes
+
+LimitRequestBody 10485760
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
+
+    # Default: no-store (protegge le pagine dinamiche/autenticate).
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    # Asset statici versionati (?v=filemtime): far-future immutable. La regola per-estensione
+    # sovrascrive il default solo per gli asset, indipendentemente dal path/docroot.
+    SetEnvIf Request_URI "\.(css|js|woff2?|ttf|eot|png|jpe?g|gif|svg|webp|ico|map)$" SPOOME_ASSET
+    Header always set Cache-Control "public, max-age=31536000, immutable" env=SPOOME_ASSET
+    Header always unset Pragma env=SPOOME_ASSET
+    Header always unset Expires env=SPOOME_ASSET
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>

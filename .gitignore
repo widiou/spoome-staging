@@ -1,31 +1,38 @@
-# === Spoome .gitignore ===
-# NOTA: vendor/ e node_modules/ restano TRACCIATI di proposito.
-# Sul server non c'è SSH/Composer/npm: le dipendenze vanno deployate via repo.
-
-# --- Segreti / ambiente ---
+# Ambiente (segreti) — MAI committare
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# --- Log ---
-php_errorlog
-*.log
-/podio/debug.log
+# Credenziali/deploy FTP (segreti locali) — MAI committare
+.deploy.env
+.deploy.log
+.deploy-state.json
 
-# --- Cache applicativa (rigenerata a runtime) ---
-/helpers/cache/
-/storage/cache/*
-!/storage/cache/.gitkeep
-/storage/logs/*
-!/storage/logs/.gitkeep
+# IDE
+.idea/
 
-# --- Immagini caricate dagli utenti (foto profilo atleti) ---
-/assets/profile/
+# Runtime
+storage/logs/*
+storage/cache/*
+storage/uploads/*
+!storage/**/.gitkeep
 
-# --- IDE / OS ---
-/.idea/
+# Contenuti caricati dagli utenti (avatar, media, documenti) — non nel repo
+public/uploads/*
+!public/uploads/.gitkeep
+!public/uploads/.htaccess
+
+# OS
 .DS_Store
 Thumbs.db
 
-# --- Build / temporanei ---
-*.tmp
+# Dipendenze / build
+# vendor/ NON è tracciato: la v2 non ha dipendenze runtime Composer (require = solo php).
+/vendor
+node_modules/
+
+# Cache tool
+__pycache__/
+*.pyc
+.phpunit.result.cache
+.php-cs-fixer.cache

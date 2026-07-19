@@ -1,0 +1,8 @@
+parameters:
+    level: 5
+    paths:
+        - src
+    excludePaths:
+        - src/autoload.php
+    bootstrapFiles:
+        - src/autoload.php

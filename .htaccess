@@ -1,42 +1,67 @@
+# Spoome v2 — routing (la app vive sotto /beta/).
+# La docroot IDEALE è public/. Questo file permette il funzionamento anche quando la
+# docroot è la root del progetto (caso attuale su /beta/), instradando tutto al front controller
+# e negando l'accesso diretto alle cartelle applicative.
+
+Options -Indexes
+
+# Limita il corpo delle richieste a 10MB: gli upload (avatar/cover ri-codificati) sono piccoli,
+# così un corpo enorme viene rifiutato dal webserver PRIMA del buffering PHP (anti-DoS).
+LimitRequestBody 10485760
+
 <IfModule mod_headers.c>
-    Header set Cache-Control "private"
-    Header set Access-Control-Allow-Origin "*"
+    # CSP: include frame-src per gli embed video allow-listed (YouTube-nocookie / Vimeo).
+    # 'always' → gli header di sicurezza sono applicati anche alle risposte di errore (4xx/5xx).
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+
+    # Content-Security-Policy: tutto da 'self' (font e icone ora self-hosted → nessun host esterno).
+    # script solo self (nessun inline JS); style inline consentito per gli attributi style=; immagini self + data:.
+    # frame-src: solo gli host di embed video allow-listed (iframe sandboxed costruiti da noi).
+    # Le immagini di anteprima link passano dall'image-proxy same-origin → coperte da img-src 'self'.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
+
+    # NB HSTS (Strict-Transport-Security): NON impostato qui perché la beta condivide il dominio
+    # spoome.it con la PRODUZIONE → una policy HSTS varrebbe per tutto il dominio. Va deciso a livello
+    # di dominio insieme alla prod.
+
+    # Default: no-store (protegge le pagine dinamiche/autenticate dalla cache di browser e proxy).
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+
+    # Asset statici versionati (?v=filemtime): far-future immutable. La regola per-estensione
+    # sovrascrive il default SOLO per gli asset — l'HTML dinamico resta no-store.
+    SetEnvIf Request_URI "\.(css|js|woff2?|ttf|eot|png|jpe?g|gif|svg|webp|ico|map)$" SPOOME_ASSET
+    Header always set Cache-Control "public, max-age=31536000, immutable" env=SPOOME_ASSET
+    Header unset Pragma env=SPOOME_ASSET
+    Header unset Expires env=SPOOME_ASSET
 </IfModule>
 
-# Imposta il gestore PHP 8.1
-AddHandler application/x-httpd-php81 .php .php5 .php4 .php3
+<IfModule mod_rewrite.c>
+    RewriteEngine On
 
-# Nasconde gli indici delle directory
-IndexIgnore *
+    # Root della app (/beta/) → front controller. Serve una regola esplicita perché la
+    # root è una directory esistente e verrebbe esclusa dalla condizione !-d più sotto.
+    RewriteRule ^$ public/index.php [L,QSA]
 
-# Permessi di accesso
-Order deny,allow
-Allow from *
+    # Blocca l'accesso diretto alle cartelle applicative sensibili (incluse dev-only tests/).
+    RewriteRule ^(?:src|config|database|storage|jobs|vendor|views|tests)(?:/|$) - [F,L]
 
-RewriteEngine On
+    # Asset statici e upload: serviti da public/ se non presenti alla root.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(assets/.*|uploads/.*)$ public/$1 [L]
 
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI ATLETI ---- #
-RewriteRule ^atleti/([0-9]+)-([a-zA-Z0-9-]+)/?$ atleta.php?id=$1 [L,QSA]
+    # Tutto il resto → front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ public/index.php [L,QSA]
+</IfModule>
 
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI SPORT ---- #
-RewriteRule ^sport/([a-zA-Z0-9-]+)/?$ sport.php?sport=$1 [L,QSA]
-
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI EVENTI ---- #
-RewriteRule ^evento/([a-zA-Z0-9-]+)/?$ evento.php?description=$1 [L,QSA]
-
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI FEDERAZIONI ---- #
-RewriteRule ^organizzazione/([a-zA-Z0-9-]+)/?$ organizzazione.php?description=$1 [L,QSA]
-
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI LUOGHI ---- #
-RewriteRule ^luogo/([a-zA-Z0-9-]+)/?$ luoghi.php?l=$1 [L,QSA]
-
-# ---- GESTIONE URL SEO-FRIENDLY PER GLI LUOGHI ---- #
-RewriteRule ^professione/([a-zA-Z0-9-]+)/?$ professione.php?p=$1 [L,QSA]
-
-# ---- REGOLE DI RISCRITTURA PREESISTENTI ---- #
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}\.php -f
-RewriteRule ^(.*)$ $1.php [L]
-
-# ---- REINDIRIZZAMENTO 404 ALLA HOME ---- #
-ErrorDocument 404 /network/index.php
+# Protezione esplicita: nega tutti i dotfile (.env, .deploy.env, .git*, ...) e file sensibili.
+<FilesMatch "(^\.|\.(env|log|sql|bak|old|ini)$|composer\.(json|lock))">
+    Require all denied
+</FilesMatch>

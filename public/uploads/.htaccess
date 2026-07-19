@@ -1,0 +1,7 @@
+# Cartella upload utente: SOLO file statici. Nessuno script eseguibile qui (difesa in profondità:
+# i file sono già ri-codificati e con nomi casuali, ma neghiamo comunque l'esecuzione).
+Options -Indexes -ExecCGI
+
+<FilesMatch "\.(php|php[0-9]?|phtml|phps|phar|pht|cgi|pl|py|sh|asp|aspx|jsp|htaccess)$">
+    Require all denied
+</FilesMatch>
