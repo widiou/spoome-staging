@@ -95,6 +95,10 @@ final class ClaimRepository
      */
     public function userHasProfileLockAware(int $userId): bool
     {
+        // FOR SHARE richiede MySQL >= 8.0.1 (produzione confermata 8.4.6): è il PRIMO FOR SHARE
+        // della codebase — il resto usa FOR UPDATE — quindi il requisito di versione è annotato qui
+        // per non ri-sollevare il dubbio di portabilità in futuro (la vecchia sintassi LOCK IN SHARE
+        // MODE resta valida ma è deprecata: non usarla).
         $stmt = $this->pdo->prepare('SELECT 1 FROM profiles WHERE user_id = :uid LIMIT 1 FOR SHARE');
         $stmt->execute(['uid' => $userId]);
         return (bool) $stmt->fetchColumn();

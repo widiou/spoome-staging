@@ -583,4 +583,40 @@ final class ClaimServiceTest extends TestCase
         $stmt->execute(['id' => $profileId]);
         $this->assertNull($stmt->fetchColumn());
     }
+
+    /**
+     * #27 (P2-a) — anche un lock-wait timeout InnoDB (errno 1205) su una riga contesa è un esito di
+     * corsa legittimo e deve diventare un ServiceResult di conflitto 409, non un 500. Gemello del
+     * test del deadlock: stesso test-double, ma la query sotto lock scade invece di deadlockare.
+     */
+    public function testApproveMapsLockWaitTimeoutToConflict409NotUncaughtException(): void
+    {
+        $profileId = $this->insertProfile(null, 'unclaimed');
+        $userId    = $this->insertUser('lockwait@demo.spoome.local');
+        $req       = $this->service()->request($userId, $profileId, null, '5.5.4.1');
+        $requestId = (int) $req->data['id'];
+
+        // Repo che, sotto lock, riproduce il lock-wait timeout (errno 1205, SQLSTATE HY000).
+        $timeoutRepo = new class($this->pdo) extends ClaimRepository {
+            public function lockProfileForClaim(int $profileId): ?array
+            {
+                // getCode() resta 0: il riconoscimento del timeout 1205 passa da errorInfo[1]
+                // (SQLSTATE HY000 non è un conflitto di per sé), non dal code della PDOException.
+                $e = new PDOException('SQLSTATE[HY000]: General error: 1205 Lock wait timeout exceeded; try restarting transaction');
+                $e->errorInfo = ['HY000', 1205, 'Lock wait timeout exceeded; try restarting transaction'];
+                throw $e;
+            }
+        };
+
+        $result = (new ClaimService($timeoutRepo))->approve($this->adminId, $requestId, '5.5.4.2');
+
+        $this->assertFalse($result->ok, 'un lock-wait timeout è un conflitto, non un successo');
+        $this->assertSame(409, $result->code, 'il timeout 1205 deve diventare 409, non propagarsi come 500');
+
+        // Rollback pulito: nessuna scrittura, la richiesta resta pending e il profilo libero.
+        $this->assertSame('pending', $this->claimRequestRow($requestId)['status']);
+        $stmt = $this->pdo->prepare('SELECT user_id FROM profiles WHERE id = :id');
+        $stmt->execute(['id' => $profileId]);
+        $this->assertNull($stmt->fetchColumn());
+    }
 }

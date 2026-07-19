@@ -187,11 +187,13 @@ final class ClaimService
     }
 
     /**
-     * Esegue $fn dentro una transazione (via Db::transaction) traducendo un deadlock InnoDB
-     * (SQLSTATE 40001 / errno 1213) in un ServiceResult di conflitto 409, invece di lasciar
-     * propagare la PDOException fino a un 500. Il deadlock è un esito di corsa legittimo: InnoDB
-     * ha già fatto il rollback (nessuna scrittura parziale), quindi al chiamante basta un 409 come
-     * per gli altri ricontrolli persi sotto lock. Ogni altra PDOException viene rilanciata.
+     * Esegue $fn dentro una transazione (via Db::transaction) traducendo un conflitto di
+     * concorrenza InnoDB in un ServiceResult 409, invece di lasciar propagare la PDOException fino
+     * a un 500. Sono esiti di corsa legittimi (InnoDB ha già fatto il rollback, nessuna scrittura
+     * parziale), quindi al chiamante basta un 409 come per gli altri ricontrolli persi sotto lock:
+     *  - deadlock (SQLSTATE 40001 / errno 1213): ciclo di lock, una transazione viene abortita;
+     *  - lock-wait timeout (errno 1205): l'attesa su una riga contesa (FOR UPDATE/FOR SHARE) scade.
+     * Ogni altra PDOException viene rilanciata.
      * @param callable():(?ServiceResult) $fn
      */
     private function runGuardedTransaction(callable $fn): ?ServiceResult
@@ -199,18 +201,21 @@ final class ClaimService
         try {
             return Db::transaction(Db::connection(), $fn);
         } catch (\PDOException $e) {
-            if ($this->isDeadlock($e)) {
+            if ($this->isConcurrencyConflict($e)) {
                 return ServiceResult::fail(I18n::t('admin.claims.err_conflict'), 409);
             }
             throw $e;
         }
     }
 
-    /** Riconosce un deadlock InnoDB (SQLSTATE 40001 / errno 1213). */
-    private function isDeadlock(\PDOException $e): bool
+    /**
+     * Riconosce un conflitto di concorrenza InnoDB da mappare a 409:
+     * deadlock (SQLSTATE 40001 / errno 1213) oppure lock-wait timeout (errno 1205).
+     */
+    private function isConcurrencyConflict(\PDOException $e): bool
     {
         $errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
-        return (string) $e->getCode() === '40001' || $errno === 1213;
+        return (string) $e->getCode() === '40001' || $errno === 1213 || $errno === 1205;
     }
 
     /**
