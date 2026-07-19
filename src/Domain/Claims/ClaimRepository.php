@@ -82,6 +82,24 @@ final class ClaimRepository
         return $stmt->fetchColumn() !== false;
     }
 
+    /**
+     * True se l'utente possiede già un profilo — lettura BLOCCANTE (`FOR SHARE`), da chiamare
+     * DENTRO la transazione di approve(). A differenza di ProfileRepository::userHasProfile()
+     * (SELECT plain, per i percorsi di sola lettura non transazionali), la lettura bloccante NON
+     * dipende dallo snapshot REPEATABLE READ: legge sempre l'ultima versione committata, così il
+     * secondo approve dello stesso richiedente (su un altro profilo) vede l'ownership appena
+     * assegnata dal primo e aborta — eliminando la dipendenza dal livello di isolamento.
+     * `FOR SHARE` e non `FOR UPDATE`: qui serve solo OSSERVARE lo stato committato, non mutare
+     * quelle righe; il lock esclusivo che serializza i due approve dello stesso utente è già preso
+     * su `users` (lockUserExists) — questo è il minimo sufficiente a chiudere lo scenario C.
+     */
+    public function userHasProfileLockAware(int $userId): bool
+    {
+        $stmt = $this->pdo->prepare('SELECT 1 FROM profiles WHERE user_id = :uid LIMIT 1 FOR SHARE');
+        $stmt->execute(['uid' => $userId]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     /** Dettaglio richiesta con dati profilo + richiedente (per l'admin). */
     public function findDetail(int $id): ?array
     {
@@ -133,11 +151,18 @@ final class ClaimRepository
         return (int) $this->pdo->query("SELECT COUNT(*) FROM claim_requests WHERE status = 'pending'")->fetchColumn();
     }
 
-    public function markReviewed(int $id, string $status, ?string $note, int $reviewerId): void
+    /**
+     * Marca la richiesta come decisa (approved/rejected) SOLO se ancora `pending`.
+     * Il guard `AND status = 'pending'` chiude la finestra TOCTOU: un `reject` concorrente non può
+     * sovrascrivere (né rinotificare) una richiesta appena approvata/rifiutata da un'altra
+     * transazione. Da usare sotto lock (la riga è già bloccata da lockRequestStatus in approve/reject).
+     * @return bool true se una riga è stata aggiornata (era pending); false se 0 righe toccate (conflitto).
+     */
+    public function markReviewed(int $id, string $status, ?string $note, int $reviewerId): bool
     {
         $stmt = $this->pdo->prepare(
-            'UPDATE claim_requests SET status = :s, review_note = :n, reviewed_by_user_id = :r, reviewed_at = NOW()
-             WHERE id = :id'
+            "UPDATE claim_requests SET status = :s, review_note = :n, reviewed_by_user_id = :r, reviewed_at = NOW()
+             WHERE id = :id AND status = 'pending'"
         );
         $stmt->execute([
             's'  => $status,
@@ -145,6 +170,7 @@ final class ClaimRepository
             'r'  => $reviewerId,
             'id' => $id,
         ]);
+        return $stmt->rowCount() > 0;
     }
 
     /** Rifiuta automaticamente le altre richieste pendenti sullo stesso profilo (dopo un'approvazione). */

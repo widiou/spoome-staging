@@ -103,7 +103,7 @@ final class ClaimService
         //  - il lock sull'UTENTE serializza due approve dello stesso richiedente su profili diversi
         //    (chi arriva secondo rivalida userHasProfile sotto lock e aborta).
         // In conflitto: nessuna scrittura, si torna 409 e la tx si chiude committando solo letture.
-        $conflict = Db::transaction(Db::connection(), function () use ($profileId, $newOwnerId, $requestId, $adminId): ?ServiceResult {
+        $conflict = $this->runGuardedTransaction(function () use ($profileId, $newOwnerId, $requestId, $adminId): ?ServiceResult {
             $profile = $this->claims->lockProfileForClaim($profileId);
             if ($profile === null) {
                 return ServiceResult::fail(I18n::t('admin.claims.err_notfound'), 404);
@@ -117,7 +117,9 @@ final class ClaimService
             if (!$this->claims->lockUserExists($newOwnerId)) {
                 return ServiceResult::fail(I18n::t('admin.claims.err_notfound'), 404);
             }
-            if ($this->profiles->userHasProfile($newOwnerId)) {
+            // Recheck lock-aware (FOR SHARE): non poggia sullo snapshot REPEATABLE READ, così lo
+            // scenario C (stesso utente, due profili) vede l'ownership committata dal primo approve.
+            if ($this->claims->userHasProfileLockAware($newOwnerId)) {
                 return ServiceResult::fail(I18n::t('admin.claims.err_user_has_profile'), 409);
             }
 
@@ -152,7 +154,27 @@ final class ClaimService
         if ($req['status'] !== 'pending') {
             return ServiceResult::fail(I18n::t('admin.claims.err_not_pending'), 422);
         }
-        $this->claims->markReviewed($requestId, 'rejected', $note !== null ? mb_substr(trim($note), 0, 500) : null, $adminId);
+
+        $note = $note !== null ? mb_substr(trim($note), 0, 500) : null;
+
+        // Atomico e sotto lock come approve(): il pre-check statico qui sopra NON è autoritativo.
+        // Senza lock, un reject concorrente potrebbe sovrascrivere (e rinotificare) una richiesta
+        // appena APPROVATA da un altro admin. Blocchiamo la riga (lockRequestStatus, come approve),
+        // rivalidiamo lo stato, poi ci affidiamo anche al guard `AND status='pending'` di
+        // markReviewed: se tocca 0 righe la corsa è persa → 409, nessuna scrittura, nessuna notifica.
+        $conflict = $this->runGuardedTransaction(function () use ($requestId, $note, $adminId): ?ServiceResult {
+            if ($this->claims->lockRequestStatus($requestId) !== 'pending') {
+                return ServiceResult::fail(I18n::t('admin.claims.err_not_pending'), 409);
+            }
+            if (!$this->claims->markReviewed($requestId, 'rejected', $note, $adminId)) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_not_pending'), 409);
+            }
+            return null; // successo: nessun conflitto
+        });
+
+        if ($conflict instanceof ServiceResult) {
+            return $conflict; // corsa persa sotto lock: stato già deciso altrove, nessuna scrittura/notifica
+        }
 
         $this->audit->record($adminId, 'claim.reject', 'profile', (int) $req['profile_id'], [
             'request_id' => $requestId,
@@ -162,6 +184,33 @@ final class ClaimService
         $this->notifyDecision($req, false, $note);
 
         return ServiceResult::ok(null, ['message' => I18n::t('admin.claims.done_rejected')]);
+    }
+
+    /**
+     * Esegue $fn dentro una transazione (via Db::transaction) traducendo un deadlock InnoDB
+     * (SQLSTATE 40001 / errno 1213) in un ServiceResult di conflitto 409, invece di lasciar
+     * propagare la PDOException fino a un 500. Il deadlock è un esito di corsa legittimo: InnoDB
+     * ha già fatto il rollback (nessuna scrittura parziale), quindi al chiamante basta un 409 come
+     * per gli altri ricontrolli persi sotto lock. Ogni altra PDOException viene rilanciata.
+     * @param callable():(?ServiceResult) $fn
+     */
+    private function runGuardedTransaction(callable $fn): ?ServiceResult
+    {
+        try {
+            return Db::transaction(Db::connection(), $fn);
+        } catch (\PDOException $e) {
+            if ($this->isDeadlock($e)) {
+                return ServiceResult::fail(I18n::t('admin.claims.err_conflict'), 409);
+            }
+            throw $e;
+        }
+    }
+
+    /** Riconosce un deadlock InnoDB (SQLSTATE 40001 / errno 1213). */
+    private function isDeadlock(\PDOException $e): bool
+    {
+        $errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+        return (string) $e->getCode() === '40001' || $errno === 1213;
     }
 
     /**

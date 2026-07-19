@@ -584,28 +584,29 @@ PHP;
         // che con un ritorno applicativo 409 — un esito di conflitto legittimo quanto quello
         // "morbido". Lo trattiamo come tale, verificando comunque sotto l'invariante di sicurezza
         // primaria sullo stato finale del DB (R-1a).
-        $result         = null;
-        $deadlockCaught = false;
+        $result           = null;
+        $escapedException = null;
         try {
             $this->waitForLocked($pipes);
 
             $result = $svc->approve($this->adminId, $requestId2, '9.9.2.3');
         } catch (PDOException $e) {
-            $sqlstate    = $e->getCode();
-            $driverCode  = $e->errorInfo[1] ?? null;
-            $isDeadlock  = $sqlstate === '40001' || $driverCode === 1213
-                || stripos($e->getMessage(), 'Deadlock found') !== false;
-            if (!$isDeadlock) {
-                throw $e; // qualunque altro errore resta un fallimento reale del test
-            }
-            $deadlockCaught = true;
+            // #27: il deadlock InnoDB (40001/1213) di questa corsa è ora catturato DENTRO approve()
+            // e mappato a un ServiceResult 409 — non deve più propagarsi come PDOException (→ 500).
+            // Se riemerge qui è una REGRESSIONE del fix, non un esito tollerato: fallisci esplicito.
+            $escapedException = $e;
         } finally {
             $this->finishRaceChild($process, $pipes, $script);
         }
 
-        if (!$deadlockCaught) {
-            $this->assertFalse($result->ok);
+        if ($escapedException !== null) {
+            $this->fail(
+                'approve() ha lasciato propagare una PDOException invece di mapparla a un conflitto 409: '
+                . $escapedException->getMessage()
+            );
         }
+        $this->assertNotNull($result);
+        $this->assertFalse($result->ok, 'il perdente della corsa deve fallire');
 
         // PROVA PRIMARIA (review Paolo, R-1a) — l'invariante di sicurezza sullo STATO FINALE del
         // DB è il gate: l'utente possiede SOLO il primo profilo (vinto dal child), MAI il secondo,
@@ -624,19 +625,16 @@ PHP;
         $stmt->execute(['p' => $profile2]);
         $this->assertSame(0, (int) $stmt->fetchColumn());
 
-        // Segnale SECONDARIO, tollerante al timing (review Paolo, R-1a): idealmente è il
-        // ricontrollo SOTTO LOCK a far fallire il padre (409), ma su un runner lento il padre può
-        // imboccare il pre-check statico (422) senza mai arrivare al lock, OPPURE InnoDB può
-        // prevenire la corsa con un deadlock-rollback (40001/1213, vedi commento sopra) invece che
-        // con un 409 applicativo — l'invariante di sicurezza sopra vale in TUTTI e tre i casi,
-        // quindi qui accettiamo tutti senza far fallire il test per un dettaglio di timing/locking.
-        if ($deadlockCaught) {
-            $this->assertTrue(true, 'deadlock 40001/1213: esito di conflitto valido, invariante DB già verificata sopra');
-        } else {
-            $this->assertTrue(
-                in_array($result->code, [409, 422], true),
-                'atteso 409 (ricontrollo sotto lock) o 422 (pre-check statico su runner lento); ottenuto: ' . $result->code
-            );
-        }
+        // Segnale SECONDARIO, tollerante al timing (review Paolo, R-1a): tutti gli esiti di
+        // conflitto legittimi sono ora un ServiceResult (mai una PDOException, cfr. #27):
+        //  - 409 se il ricontrollo SOTTO LOCK ha visto lo stato cambiato, OPPURE se InnoDB ha
+        //    prevenuto la corsa con un deadlock-rollback (40001/1213) che approve() mappa a 409;
+        //  - 422 se, su un runner lento, il padre ha imboccato il pre-check statico senza mai
+        //    arrivare al lock.
+        // L'invariante di sicurezza sopra vale in tutti i casi, quindi accettiamo entrambi i codici.
+        $this->assertTrue(
+            in_array($result->code, [409, 422], true),
+            'atteso 409 (ricontrollo sotto lock o deadlock mappato) o 422 (pre-check statico su runner lento); ottenuto: ' . $result->code
+        );
     }
 }
