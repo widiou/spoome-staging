@@ -31,6 +31,13 @@
   - Ricerca/mercato → `product-strategist`; UX/flussi → `ux-designer`; query/indici → `db-performance-engineer`; deploy/config/CSP → `devops-release-engineer`; view/CSS/JS → `frontend-engineer`.
 - **Guardrail** (`.claude/settings.json`): auto-consentiti solo comandi sicuri/read-only (git read, `ls`, deploy `--dry-run`, curl smoke sulla beta); segreti (`.env`, `.deploy.env`) fuori dalla portata dei tool; ogni azione mutante (deploy pieno, SQL via `q.py`, migrazioni) resta a conferma esplicita.
 
+## Tracciamento del lavoro — GitHub (`.team/`)
+**Ogni operazione passa dal tracker.** Motore = GitHub Issues + Milestone + Label del repo `widiou/spoome-staging` (stile VS Team, nessun sistema reinventato). Dettagli e roster in `.team/README.md`; CLI in `.team/team.py` (token dal keychain, **non deployato**).
+- **Agenti = nomi italiani** (label `agente:*`): Regia (orchestratore), Matteo (backend), Dario (DB), Sara (sicurezza), Filippo (frontend), Chiara (QA), Giorgio (ops), Elena (prodotto), Paolo (review), Bianca (UX).
+- **Milestone = treni di rilascio** (R1…R6). **`stato:*`** = in-corso/in-review/bloccato/aiuto.
+- **Flusso:** Regia apre l'issue (agente+tipo+treno) → l'agente `stato:in-corso`, lavora, **carica** il risultato come commento firmato, o chiede `stato:aiuto`/`bloccato` → `stato:in-review` (Paolo, +Sara se authz/dati) → deploy → smoke verde → `close` col commit collegato. Serializzato, un treno alla volta.
+- Uso: `./.team/team.py list --mine <Nome>` · `comment <n> "..." --as <Nome>` · `state <n> <stato>` · `close <n> --comment "..."`.
+
 ## Competenze (Skill) — `.claude/skills/`
 Procedure ripetibili codificate: invocale (via lo strumento Skill) quando il compito le attiva, invece di rifare a memoria.
 - **Skill di progetto (custom):**
