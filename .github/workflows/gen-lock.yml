@@ -2,6 +2,9 @@ name: Generate composer.lock (one-off, issue #19)
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [chore/r1-19-composer-lock]
+    paths: ['.github/workflows/gen-lock.yml']
 
 jobs:
   gen-lock:
