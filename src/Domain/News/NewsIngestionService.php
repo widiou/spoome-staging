@@ -120,7 +120,8 @@ final class NewsIngestionService
     private function rssImage(\SimpleXMLElement $item): ?string
     {
         $enc = $item->enclosure['url'] ?? null;
-        if ($enc !== null && $this->looksImage((string) $item->enclosure['type'] ?? '', (string) $enc)) {
+        // (string) di un attributo SimpleXML assente è già '' (mai null): niente ?? da applicare dopo il cast.
+        if ($enc !== null && $this->looksImage((string) $item->enclosure['type'], (string) $enc)) {
             return (string) $enc;
         }
         foreach (['media', 'content'] as $ns) {
