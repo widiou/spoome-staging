@@ -62,16 +62,8 @@ jobs:
           SPOOME_TEST_PASS: root
         run: composer test
 
-      # TODO(qa): questi due step sono report-only nella prima iterazione perché non
-      # abbiamo un ambiente PHP locale per verificare PRIMA che src/ passi già
-      # PHPStan livello 5 (phpstan.neon) e lo stile php-cs-fixer configurato.
-      # Appena il primo run CI è verde (nessun errore reale segnalato, solo rumore
-      # atteso), rimuovere `continue-on-error: true` da entrambi gli step per
-      # renderli bloccanti come composer test.
-      - name: "PHPStan (report-only, TODO: rendere bloccante)"
-        continue-on-error: true
+      - name: "PHPStan (bloccante)"
         run: composer stan
 
-      - name: "PHP-CS-Fixer (report-only, TODO: rendere bloccante)"
-        continue-on-error: true
+      - name: "PHP-CS-Fixer (bloccante)"
         run: composer cs
