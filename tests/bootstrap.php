@@ -44,6 +44,12 @@ if ($spoomeTestDsn !== false && $spoomeTestDsn !== '') {
         'DB_HOST'    => $dsnParts['host'] ?? '127.0.0.1',
         'DB_NAME'    => $dsnParts['dbname'] ?? '',
         'DB_CHARSET' => $dsnParts['charset'] ?? 'utf8mb4',
+        // Propaga anche porta/unix_socket non standard: Db::connection() ora li legge,
+        // così il singleton reindirizzato dai test combacia byte-per-byte col DSN completo
+        // usato dal test stesso (vedi src/Core/Db.php). Se assenti dal DSN, restano stringa
+        // vuota e Db::connection() ricostruisce il DSN "semplice" di sempre.
+        'DB_PORT'    => $dsnParts['port'] ?? '',
+        'DB_SOCKET'  => $dsnParts['unix_socket'] ?? '',
         'DB_USER'    => (string) getenv('SPOOME_TEST_USER'),
         'DB_PASS'    => (string) getenv('SPOOME_TEST_PASS'),
         // Non-produzione di default: i test possono comunque forzare APP_ENV=production
