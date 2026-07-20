@@ -23,6 +23,8 @@ final class Db
         $user    = (string) Config::get('DB_USER', '');
         $pass    = (string) Config::get('DB_PASS', '');
         $charset = (string) Config::get('DB_CHARSET', 'utf8mb4');
+        $port    = (string) Config::get('DB_PORT', '');
+        $socket  = (string) Config::get('DB_SOCKET', '');
 
         if ($name === '' || $user === '') {
             throw new RuntimeException(
@@ -30,7 +32,16 @@ final class Db
             );
         }
 
-        $dsn = "mysql:host={$host};dbname={$name};charset={$charset}";
+        // Socket e host/port sono mutuamente esclusivi lato PDO MySQL: se è valorizzato
+        // un unix_socket, ha priorità (host/port verrebbero comunque ignorati dal driver).
+        // Se né DB_PORT né DB_SOCKET sono in .env, il DSN resta identico a prima (retro-compatibile).
+        if ($socket !== '') {
+            $dsn = "mysql:unix_socket={$socket};dbname={$name};charset={$charset}";
+        } else {
+            $dsn = $port !== ''
+                ? "mysql:host={$host};port={$port};dbname={$name};charset={$charset}"
+                : "mysql:host={$host};dbname={$name};charset={$charset}";
+        }
         self::$pdo = new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
