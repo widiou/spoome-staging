@@ -7,7 +7,9 @@ namespace Spoome\Tests\Integration;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use Spoome\Core\Cache;
+use Spoome\Core\Request;
 use Spoome\Domain\Auth\AuthService;
+use Spoome\Domain\Auth\CurrentUser;
 use Spoome\Domain\Auth\EmailVerificationService;
 use Spoome\Domain\Auth\PasswordResetService;
 use Spoome\Domain\Users\UserRepository;
@@ -58,6 +60,7 @@ final class AuthServiceTest extends TestCase
             password_hash VARCHAR(255) NOT NULL,
             role ENUM('member','moderator','admin') NOT NULL DEFAULT 'member',
             status ENUM('pending','active','suspended') NOT NULL DEFAULT 'pending',
+            session_epoch INT UNSIGNED NOT NULL DEFAULT 0,
             email_verified_at TIMESTAMP NULL DEFAULT NULL,
             last_login_at TIMESTAMP NULL DEFAULT NULL,
             unread_notifications INT NOT NULL DEFAULT 0,
@@ -188,6 +191,8 @@ final class AuthServiceTest extends TestCase
         // Mai lasciare l'ambiente in 'production' per il test successivo nello stesso processo.
         $_ENV['APP_ENV'] = 'testing';
         putenv('APP_ENV=testing');
+        // I test di CurrentUser popolano $_SESSION a mano: azzerarlo evita leak tra i metodi.
+        $_SESSION = [];
     }
 
     private function service(): AuthService
@@ -441,6 +446,65 @@ final class AuthServiceTest extends TestCase
         // Monouso: lo stesso token non deve più funzionare.
         $second = $svc->resetPassword($token, 'UnaTerzaSegreta9!', '90.0.0.3');
         $this->assertFalse($second['ok']);
+    }
+
+    /** Il reset password incrementa users.session_epoch: è il segnale che invalida le sessioni web pre-reset. */
+    public function testResetPasswordBumpsSessionEpoch(): void
+    {
+        $svc = $this->service();
+        $r = $svc->register('epoch1@demo.spoome.local', self::STRONG_PW, 'Epoch Uno', 'atleta', '91.0.0.1');
+        $this->assertTrue($r['ok']);
+
+        $before = (int) $this->epochOf($r['userId']);
+        $this->assertSame(0, $before, 'un nuovo utente parte con epoch 0');
+
+        $token = (new PasswordResetService($this->pdo))->issue($r['userId']);
+        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '91.0.0.2')['ok']);
+
+        $this->assertSame($before + 1, (int) $this->epochOf($r['userId']), 'il reset deve incrementare session_epoch');
+    }
+
+    /**
+     * Cuore del fix #4: dopo un reset password, una sessione web con l'epoch VECCHIO non risolve più
+     * l'utente (CurrentUser la considera stale e la distrugge), mentre una sessione FRESCA (con l'epoch
+     * aggiornato, come la fisserebbe il login) risolve normalmente. Simula lo stato di sessione a mano
+     * ($_SESSION) e usa una Request nuova ad ogni resolve (il risultato è memoizzato per-Request).
+     */
+    public function testCurrentUserRejectsStaleWebSessionAfterPasswordResetButAllowsFreshOne(): void
+    {
+        $svc = $this->service();
+        $r = $svc->register('epoch2@demo.spoome.local', self::STRONG_PW, 'Epoch Due', 'atleta', '92.0.0.1');
+        $this->assertTrue($r['ok']);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($r['userId']); // CurrentUser richiede utente attivo
+        $uid = (int) $r['userId'];
+
+        // Sessione "loggata" con l'epoch corrente (0), come farebbe startUserSession al login.
+        $_SESSION = ['user_id' => $uid, 'role' => 'member', 'session_epoch' => $this->epochOf($uid)];
+        $resolved = CurrentUser::resolve(Request::capture());
+        $this->assertNotNull($resolved, 'sessione fresca: l\'utente deve risolvere');
+        $this->assertSame($uid, $resolved->id);
+
+        // Reset password → epoch DB incrementato, ma $_SESSION porta ancora quello vecchio.
+        $token = (new PasswordResetService($this->pdo))->issue($uid);
+        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '92.0.0.2')['ok']);
+
+        $stale = CurrentUser::resolve(Request::capture());
+        $this->assertNull($stale, 'sessione con epoch pre-reset: NON deve più risolvere l\'utente');
+        $this->assertArrayNotHasKey('user_id', $_SESSION, 'la sessione stale deve essere distrutta');
+
+        // Nuovo login: la sessione riparte con l'epoch aggiornato → risolve di nuovo.
+        $_SESSION = ['user_id' => $uid, 'role' => 'member', 'session_epoch' => $this->epochOf($uid)];
+        $fresh = CurrentUser::resolve(Request::capture());
+        $this->assertNotNull($fresh, 'una sessione aperta dopo il reset non deve auto-sfrattarsi');
+        $this->assertSame($uid, $fresh->id);
+    }
+
+    /** Legge users.session_epoch per l'utente dato (dal DB usa-e-getta del test). */
+    private function epochOf(int $userId): int
+    {
+        $stmt = $this->pdo->prepare('SELECT session_epoch FROM users WHERE id = :id');
+        $stmt->execute(['id' => $userId]);
+        return (int) $stmt->fetchColumn();
     }
 
     public function testResetPasswordRejectsWeakPasswordWithoutConsumingToken(): void

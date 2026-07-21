@@ -60,9 +60,20 @@ final class UserRepository
         $stmt->execute(['id' => $userId]);
     }
 
+    /**
+     * Aggiorna la password E incrementa `session_epoch` nella STESSA UPDATE (atomico, single-statement):
+     * ogni cambio password — reset via token o cambio volontario — invalida le sessioni web emesse prima
+     * (CurrentUser confronta l'epoch salvato in sessione con questo). Coprire il choke-point qui garantisce
+     * che nessun percorso di modifica password possa dimenticare l'invalidazione.
+     *
+     * Richiede la colonna `session_epoch` (migrazione 0032): a differenza del read-path, questa
+     * scrittura NON è fail-safe a colonna assente. La 0032 va applicata prima del deploy del codice.
+     */
     public function updatePassword(int $userId, string $passwordHash): void
     {
-        $stmt = $this->pdo->prepare('UPDATE users SET password_hash = :hash WHERE id = :id');
+        $stmt = $this->pdo->prepare(
+            'UPDATE users SET password_hash = :hash, session_epoch = session_epoch + 1 WHERE id = :id'
+        );
         $stmt->execute(['hash' => $passwordHash, 'id' => $userId]);
     }
 
