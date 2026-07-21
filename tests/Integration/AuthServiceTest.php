@@ -507,6 +507,155 @@ final class AuthServiceTest extends TestCase
         return (int) $stmt->fetchColumn();
     }
 
+    /* ------------------------------------------------------- session timeout (#5) ---- */
+
+    /** Registra un utente, lo attiva (CurrentUser richiede utente attivo) e ne restituisce l'id. */
+    private function registerActiveUser(string $email): int
+    {
+        $r = $this->service()->register($email, self::STRONG_PW, 'Timeout Test', 'atleta', '99.0.0.1');
+        $this->assertTrue($r['ok']);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($r['userId']);
+        return (int) $r['userId'];
+    }
+
+    /**
+     * @param array<string,int> $extra sovrascrive/aggiunge chiavi di sessione (login_at/last_seen/...)
+     * @return array<string,mixed>
+     */
+    private function webSession(int $uid, array $extra): array
+    {
+        return array_merge(['user_id' => $uid, 'role' => 'member', 'session_epoch' => 0], $extra);
+    }
+
+    /** IDLE: last_seen più vecchio della soglia idle (30m default) → la sessione è sfrattata. */
+    public function testCurrentUserRejectsSessionIdleBeyondThreshold(): void
+    {
+        $uid = $this->registerActiveUser('idle@demo.spoome.local');
+        $now = time();
+        // login_at recente (dentro l'assoluto), ma last_seen oltre i 30 minuti di inattività.
+        $_SESSION = $this->webSession($uid, ['login_at' => $now - 600, 'last_seen' => $now - (31 * 60)]);
+
+        $this->assertNull(CurrentUser::resolve(Request::capture()), 'sessione idle-scaduta: non deve risolvere');
+        $this->assertArrayNotHasKey('user_id', $_SESSION, 'la sessione idle-scaduta deve essere distrutta');
+    }
+
+    /** ASSOLUTO: login_at oltre 12h, anche con last_seen recentissimo (utente attivo) → sfrattata. */
+    public function testCurrentUserRejectsSessionBeyondAbsoluteLifetimeDespiteRecentActivity(): void
+    {
+        $uid = $this->registerActiveUser('absolute@demo.spoome.local');
+        $now = time();
+        // last_seen appena aggiornato (nessun idle), ma login_at oltre il tetto assoluto di 12h.
+        $_SESSION = $this->webSession($uid, ['login_at' => $now - (13 * 3600), 'last_seen' => $now - 5]);
+
+        $this->assertNull(CurrentUser::resolve(Request::capture()), 'oltre l\'assoluto: attività recente non salva la sessione');
+        $this->assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    /** SLIDING: dentro le soglie → utente risolto E last_seen fatto avanzare a ~now. */
+    public function testCurrentUserSlidesLastSeenWhenWithinThresholds(): void
+    {
+        $uid = $this->registerActiveUser('sliding@demo.spoome.local');
+        $now = time();
+        $_SESSION = $this->webSession($uid, ['login_at' => $now - 600, 'last_seen' => $now - 300]);
+
+        $resolved = CurrentUser::resolve(Request::capture());
+        $this->assertNotNull($resolved, 'sessione entro le soglie: deve risolvere');
+        $this->assertSame($uid, $resolved->id);
+        $this->assertGreaterThanOrEqual($now, (int) $_SESSION['last_seen'], 'last_seen deve scorrere fino a ~now');
+        $this->assertSame($now - 600, (int) $_SESSION['login_at'], 'login_at (ancora assoluta) NON deve cambiare');
+    }
+
+    /** LEGACY: sessione senza login_at/last_seen (pre-#5) → seedata e utente risolto, nessun crash/logout. */
+    public function testCurrentUserSeedsLegacySessionWithoutTimeoutAnchors(): void
+    {
+        $uid = $this->registerActiveUser('legacy@demo.spoome.local');
+        $now = time();
+        $_SESSION = $this->webSession($uid, []); // niente login_at / last_seen
+
+        $resolved = CurrentUser::resolve(Request::capture());
+        $this->assertNotNull($resolved, 'una sessione legacy non deve essere sfrattata al primo hit');
+        $this->assertSame($uid, $resolved->id);
+        $this->assertGreaterThanOrEqual($now, (int) $_SESSION['login_at'], 'login_at seedato a ~now');
+        $this->assertGreaterThanOrEqual($now, (int) $_SESSION['last_seen'], 'last_seen seedato a ~now');
+    }
+
+    /** Epoch valido MA idle-scaduta → comunque sfrattata: i due controlli non si annullano a vicenda. */
+    public function testCurrentUserRejectsIdleSessionEvenWithCurrentEpoch(): void
+    {
+        $uid = $this->registerActiveUser('epochidle@demo.spoome.local');
+        $now = time();
+        // session_epoch = epoch corrente (valido), ma idle oltre soglia.
+        $_SESSION = $this->webSession($uid, [
+            'session_epoch' => $this->epochOf($uid),
+            'login_at'      => $now - 600,
+            'last_seen'     => $now - (31 * 60),
+        ]);
+
+        $this->assertNull(CurrentUser::resolve(Request::capture()), 'epoch valido non deve salvare una sessione idle-scaduta');
+        $this->assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    /**
+     * BOUNDARY: la soglia usa `>` (non `>=`), quindi ALLA soglia la sessione è ancora valida e
+     * appena OLTRE è sfrattata. Uso margini di ~2s attorno ai 30m idle per essere deterministico
+     * malgrado l'avanzare reale di time() dentro resolve() (nessun freeze del clock nei test).
+     */
+    public function testIdleTimeoutBoundaryIsInclusiveAtThresholdExclusiveBeyond(): void
+    {
+        $uid = $this->registerActiveUser('boundary@demo.spoome.local');
+        $now = time();
+
+        // Appena DENTRO la soglia idle (30m) → deve risolvere.
+        $_SESSION = $this->webSession($uid, ['login_at' => $now - 600, 'last_seen' => $now - ((30 * 60) - 2)]);
+        $this->assertNotNull(CurrentUser::resolve(Request::capture()), 'alla soglia idle la sessione è ancora valida (>)');
+
+        // Appena OLTRE la soglia idle → deve essere sfrattata.
+        $_SESSION = $this->webSession($uid, ['login_at' => $now - 600, 'last_seen' => $now - ((30 * 60) + 2)]);
+        $this->assertNull(CurrentUser::resolve(Request::capture()), 'oltre la soglia idle la sessione è sfrattata');
+        $this->assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    /**
+     * CONFIG DEGENERATA: una soglia presente ma vuota/non numerica (`(int)` → 0) NON deve azzerare il
+     * timeout e sfrattare tutti a ogni richiesta: il clamp ricade sul default sicuro. Una sessione
+     * ben dentro i default deve continuare a risolvere anche con config rotta.
+     */
+    public function testDegenerateTimeoutConfigFallsBackToSafeDefaults(): void
+    {
+        $uid = $this->registerActiveUser('degenerate@demo.spoome.local');
+        $now = time();
+        $prevAbs = $_ENV['SESSION_ABSOLUTE_HOURS'] ?? null;
+        $prevIdle = $_ENV['SESSION_IDLE_MINUTES'] ?? null;
+        try {
+            // Config presente ma vuota → env() ritorna '' → (int)'' = 0 (soglia degenere senza clamp).
+            $_ENV['SESSION_ABSOLUTE_HOURS'] = '';
+            $_ENV['SESSION_IDLE_MINUTES']   = '';
+            putenv('SESSION_ABSOLUTE_HOURS=');
+            putenv('SESSION_IDLE_MINUTES=');
+
+            // Sessione ben dentro i default (10m di vita, 5m di inattività).
+            $_SESSION = $this->webSession($uid, ['login_at' => $now - 600, 'last_seen' => $now - 300]);
+            $resolved = CurrentUser::resolve(Request::capture());
+            $this->assertNotNull($resolved, 'config degenere non deve sfrattare: clamp ai default');
+            $this->assertSame($uid, $resolved->id);
+        } finally {
+            $this->restoreEnv('SESSION_ABSOLUTE_HOURS', $prevAbs);
+            $this->restoreEnv('SESSION_IDLE_MINUTES', $prevIdle);
+        }
+    }
+
+    /** Ripristina (o rimuove) una chiave env dopo un test che la sovrascrive. */
+    private function restoreEnv(string $key, ?string $prev): void
+    {
+        if ($prev === null) {
+            unset($_ENV[$key]);
+            putenv($key);
+            return;
+        }
+        $_ENV[$key] = $prev;
+        putenv($key . '=' . $prev);
+    }
+
     public function testResetPasswordRejectsWeakPasswordWithoutConsumingToken(): void
     {
         $svc = $this->service();
