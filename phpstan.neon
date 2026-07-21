@@ -10,6 +10,11 @@ parameters:
         # strutturale, non un bug — la funzione esiste ed è caricata a runtime da bootstrap.php).
         - src/autoload.php
         - config/env.php
+        # src/Core/helpers.php espone e() (escaping): usato anche fuori dalle view quando un
+        # Service genera direttamente output HTML (es. MaintenanceService per il digest email
+        # di alert). Stesso caso di env() sopra: caricato a runtime da jobs/*.php e tests/bootstrap.php,
+        # ma serve dichiararlo qui perché PHPStan lo veda in fase di analisi statica.
+        - src/Core/helpers.php
     ignoreErrors:
         -
             # Falso positivo noto di PHPStan sul narrowing di PDO::inTransaction() attraverso

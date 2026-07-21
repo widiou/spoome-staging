@@ -7,12 +7,18 @@
  *     auth_tokens (scaduti/revocati), email_verifications + password_resets (usati/scaduti),
  *     app_logs (>90g), user_events (>30g), link_previews (cache scaduta). DELETE a batch.
  *  2) RECONCILE dei contatori denormalizzati dalla source-of-truth (difesa in profondità, non distruttiva).
+ *  3) ALERT su spike di errori (issue #8): se un fingerprint in app_logs supera
+ *     ALERT_ERROR_THRESHOLD_24H (default 50) errori (level=error) nelle ultime 24h, invia UN digest
+ *     via Mailer (in staging logga soltanto — vedi src/Core/Mailer.php) a ADMIN_ALERT_EMAIL.
+ *     Un digest al giorno dei fingerprint attualmente sopra soglia (nessun lock/dedup: il job
+ *     gira 1×/giorno, è già l'anti-spam naturale — vedi MaintenanceService::detectErrorSpikes()).
  *
  * Cron consigliato (una volta al giorno, di notte — poco traffico):
  *
  *   17 3 * * *  php /home/USER/public_html/beta/jobs/maintenance.php >> /home/USER/logs/maintenance.log 2>&1
  *
- * Logga su stdout un riepilogo (righe eliminate per tabella + contatori riallineati) ed exit 0.
+ * Logga su stdout un riepilogo (righe eliminate per tabella + contatori riallineati + eventuali
+ * alert spike) ed exit 0 SEMPRE (un alert non è un errore del job).
  */
 
 declare(strict_types=1);
@@ -55,4 +61,26 @@ foreach ($reconciled as $counter => $n) {
     }
 }
 
+// Alert su spike di errori/24h (app_logs): un digest via Mailer se ci sono fingerprint sopra soglia.
+// L'invio (o il logging in staging) è già avvenuto dentro run(); qui solo il riepilogo per lo stdout.
+$alerts = $r['alerts'];
+if ($alerts === []) {
+    fwrite(STDOUT, sprintf("[%s] maintenance alert: nessun fingerprint sopra soglia errori/24h\n", date('c')));
+} else {
+    fwrite(STDOUT, sprintf(
+        "[%s] maintenance alert: %d fingerprint sopra soglia errori/24h — digest inviato\n",
+        date('c'),
+        count($alerts)
+    ));
+    foreach ($alerts as $a) {
+        fwrite(STDOUT, sprintf(
+            "  alert %-40s count=%-5d klass=%s\n",
+            $a['fingerprint'],
+            $a['count'],
+            $a['exception_class'] ?? '-'
+        ));
+    }
+}
+
+// L'alert non è un errore del job: exit 0 invariato.
 exit(0);
