@@ -11,6 +11,7 @@ use Spoome\Core\View;
 use Spoome\Domain\Auth\AuthService;
 use Spoome\Domain\Profiles\ProfileRepository;
 use Spoome\Domain\Sports\SportRepository;
+use Spoome\Domain\Users\UserRepository;
 use Spoome\Http\Controllers\Controller;
 
 /**
@@ -141,7 +142,7 @@ final class AuthController extends Controller
             return;
         }
 
-        $this->startUserSession((int) $result['user']->id, $result['user']->role);
+        $this->startUserSession((int) $result['user']->id, $result['user']->role, $result['user']->sessionEpoch);
         Response::redirect('');
     }
 
@@ -170,7 +171,25 @@ final class AuthController extends Controller
             return;
         }
 
-        $this->startUserSession($userId, 'member'); // auto-login dopo la verifica
+        // Auto-login dopo la verifica: rileggo l'utente per fissare in sessione l'epoch CORRENTE.
+        // Un utente pending può aver richiesto un reset password prima di verificare (l'epoch è già
+        // stato incrementato): partire da 0 auto-sfratterebbe subito la sessione appena creata.
+        $user = (new UserRepository())->findById($userId);
+        if ($user === null) {
+            // Incoerenza: il token ha appena risolto questo id ma l'utente non è leggibile.
+            // Non apriamo una sessione con ruolo/epoch di ripiego — falliamo in modo sicuro.
+            View::render('message', [
+                'title'       => $this->title('auth.verify.invalid_title'),
+                'heading'     => I18n::t('auth.verify.invalid_title'),
+                'message'     => I18n::t('auth.verify.invalid_msg'),
+                'type'        => 'error',
+                'actionUrl'   => url('accedi'),
+                'actionLabel' => I18n::t('auth.verify.go_login'),
+            ], 'base');
+            return;
+        }
+
+        $this->startUserSession($userId, $user->role, $user->sessionEpoch);
         Session::flash(I18n::t('auth.flash.verified'), 'success');
         Response::redirect('');
     }
@@ -261,11 +280,15 @@ final class AuthController extends Controller
         View::render('auth/login', ['title' => $this->title('auth.login.title'), 'error' => $error, 'old' => $old], 'base');
     }
 
-    private function startUserSession(int $userId, string $role): void
+    private function startUserSession(int $userId, string $role, int $sessionEpoch = 0): void
     {
         Session::regenerate(); // anti session-fixation
         Session::set('user_id', $userId);
         Session::set('role', $role);
+        // Epoch di sessione: fissa la generazione con cui questa sessione nasce. Un successivo cambio
+        // password incrementerà users.session_epoch → CurrentUser sfratterà questa sessione (stale),
+        // ma NON quelle aperte dopo (che ripartono dall'epoch aggiornato). Vedi CurrentUser.
+        Session::set('session_epoch', $sessionEpoch);
         // Denormalizza il profilo PERSONALE in sessione: elimina una query per pagina negli helper di
         // nav. null è legittimo (utente "claimant" senza profilo) — Session::has() distingue assente da
         // null. Multi-profilo: `profile_id` = personale (default dell'acting context) e l'acting parte

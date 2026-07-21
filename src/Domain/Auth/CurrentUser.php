@@ -37,12 +37,31 @@ final class CurrentUser
         if ($uid !== null) {
             $u = $users->findById($uid);
             if ($u && $u->isActive()) {
-                return $u;
+                if (self::sessionEpochIsCurrent($u)) {
+                    return $u;
+                }
+                // Sessione emessa PRIMA dell'ultimo cambio password → stale: la distruggiamo, così
+                // anche gli helper di nav (auth_id/is_admin, che leggono $_SESSION direttamente)
+                // tornano coerentemente anonimi e la rotta protetta redirige al login.
+                Session::destroy();
             }
         }
 
-        // 2) token Bearer (app native / API)
+        // 2) token Bearer (app native / API) — canale indipendente dalla sessione web.
         return self::fromBearer($request);
+    }
+
+    /**
+     * True se l'epoch salvato in sessione al login è aggiornato rispetto a users.session_epoch.
+     * Fail-safe by design:
+     *  - sessione priva di 'session_epoch' (creata prima di questa feature) → trattata come 0;
+     *  - colonna session_epoch assente (prima della migrazione 0032) → User::sessionEpoch è 0.
+     * In entrambi i casi 0 >= 0 è true → nessuna sessione legittima viene sloggata per errore.
+     * Diventa false solo quando un cambio password ha incrementato l'epoch DB oltre quello di sessione.
+     */
+    private static function sessionEpochIsCurrent(User $u): bool
+    {
+        return (int) Session::get('session_epoch', 0) >= $u->sessionEpoch;
     }
 
     /**
