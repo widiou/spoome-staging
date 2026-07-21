@@ -9,7 +9,6 @@
 
 use Spoome\Core\Config;
 use Spoome\Core\Csrf;
-use Spoome\Core\Request;
 use Spoome\Core\Response;
 use Spoome\Core\View;
 use Spoome\Http\Controllers\Web\AuthController as WebAuth;
@@ -369,17 +368,5 @@ $router->delete($api . '/me/avatar', [ApiMedia::class, 'deleteAvatar']);
 $router->post($api   . '/me/cover', [ApiMedia::class, 'uploadCover']);
 $router->delete($api . '/me/cover', [ApiMedia::class, 'deleteCover']);
 
-/* ==================================================== MIGRAZIONI (protette) ==== */
-// Tripla protezione: no in produzione, va abilitato con MIGRATION_HTTP_ENABLED, richiede token via POST.
-if (!Config::isProduction() && (bool) Config::get('MIGRATION_HTTP_ENABLED', false)) {
-    $router->post('/__migrate', static function (Request $request): void {
-        $token    = (string) Config::get('MIGRATION_TOKEN', '');
-        $provided = (string) $request->input('token', '');
-        if ($token === '' || !hash_equals($token, $provided)) {
-            Response::error('Token non valido o assente', 403);
-            return;
-        }
-        $migrator = new \Spoome\Core\Migrator(\Spoome\Core\Db::connection(), dirname(__DIR__) . '/database/migrations');
-        Response::json(['result' => $migrator->migrate()]);
-    });
-}
+// Migrazioni: niente più endpoint HTTP (superficie inutile su hosting con SSH). Runner CLI in
+// jobs/migrate.php (status|up), invoca Spoome\Core\Migrator direttamente da riga di comando.
