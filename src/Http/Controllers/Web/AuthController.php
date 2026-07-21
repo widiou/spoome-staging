@@ -289,6 +289,12 @@ final class AuthController extends Controller
         // password incrementerà users.session_epoch → CurrentUser sfratterà questa sessione (stale),
         // ma NON quelle aperte dopo (che ripartono dall'epoch aggiornato). Vedi CurrentUser.
         Session::set('session_epoch', $sessionEpoch);
+        // Ancoraggi per i timeout ENFORCED lato server (#5): login_at è l'ancora ASSOLUTA (fissa,
+        // non scorre più), last_seen è l'ancora IDLE (finestra scorrevole, aggiornata ad ogni richiesta
+        // valida da CurrentUser). Entrambe = ora del login/verify. Vedi CurrentUser::sessionIsWithinTimeouts.
+        $now = time();
+        Session::set('login_at', $now);
+        Session::set('last_seen', $now);
         // Denormalizza il profilo PERSONALE in sessione: elimina una query per pagina negli helper di
         // nav. null è legittimo (utente "claimant" senza profilo) — Session::has() distingue assente da
         // null. Multi-profilo: `profile_id` = personale (default dell'acting context) e l'acting parte
