@@ -78,6 +78,13 @@ final class ProfileController extends Controller
         $total = $result['total'];
         $pages = $pg->pages($total);
 
+        // M4 · analytics d'uso "chi cerca": solo ricerche reali (query non vuota) e SOLO alla prima
+        // pagina → la paginazione della stessa ricerca non gonfia il conteggio. Fail-safe (non lancia
+        // mai). Il typeahead `suggest()` NON è instrumentato di proposito (rumoroso).
+        if ($search !== '' && $page === 1) {
+            \Spoome\Domain\Analytics\AnalyticsService::search(auth_id(), (int) $total);
+        }
+
         View::render('atleti/index', [
             'title'       => $this->title('atleti.index.title'),
             'description' => I18n::t('atleti.index.meta'),
@@ -149,6 +156,10 @@ final class ProfileController extends Controller
             \Spoome\Core\Response::redirect($canonicalPath, 301);
             return;
         }
+
+        // M4 · analytics d'uso "apre profilo": registrato DOPO il redirect canonico (niente doppio
+        // conteggio) e su profilo confermato. Fail-safe (non lancia mai).
+        \Spoome\Domain\Analytics\AnalyticsService::profileOpen(auth_id(), (int) $profile['id']);
 
         // Tutta la costruzione del read-model (community/claim/skills/roster/insights/posts, type-aware) vive
         // nel Service: il controller resta sottile e passa il visitatore (id utente di sessione) come dato.

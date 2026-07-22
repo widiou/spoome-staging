@@ -34,6 +34,7 @@ use Spoome\Http\Controllers\Web\Admin\DashboardController as AdminDashboard;
 use Spoome\Http\Controllers\Web\Admin\AuthController as AdminAuth;
 use Spoome\Http\Controllers\Web\Admin\UsersController as AdminUsers;
 use Spoome\Http\Controllers\Web\Admin\StatsController as AdminStats;
+use Spoome\Http\Controllers\Web\Admin\AnalyticsController as AdminAnalytics;
 use Spoome\Http\Controllers\Web\Admin\LogsController as AdminLogs;
 use Spoome\Http\Controllers\Web\Admin\ModerationController as AdminMod;
 use Spoome\Http\Controllers\Web\Admin\ClaimsController as AdminClaims;
@@ -253,6 +254,9 @@ $router->get('/admin', [AdminDashboard::class, 'index'], [$auth, $admin, $stepup
 
 // Statistiche
 $router->get('/admin/statistiche', [AdminStats::class, 'index'], [$auth, $admin, $stepup]);
+
+// Analytics d'uso (M4) — lettura on-demand degli eventi instrumentati
+$router->get('/admin/analytics', [AdminAnalytics::class, 'index'], [$auth, $admin, $stepup]);
 
 // Utenti
 $router->get('/admin/utenti', [AdminUsers::class, 'index'], [$auth, $admin, $stepup]);

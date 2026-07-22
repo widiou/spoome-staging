@@ -76,6 +76,12 @@ final class ProfileController extends ApiController
         }
 
         $viewer = CurrentUser::fromBearer($request);
+
+        // M4 · analytics d'uso "apre profilo" (parità col web). Attore dal Bearer già risolto; API
+        // stateless → nessun anon_id. Fail-safe (non lancia mai). La ricerca via API (/profiles?q=)
+        // NON è instrumentata: endpoint pubblico ad alto traffico, attore non risolto → basso segnale.
+        \Spoome\Domain\Analytics\AnalyticsService::profileOpen($viewer?->id, (int) $profile['id']);
+
         Response::json((new ProfilePageService())->apiModel($profile, $viewer?->id));
     }
 
