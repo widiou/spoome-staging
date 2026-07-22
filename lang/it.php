@@ -1035,4 +1035,46 @@ return [
     'app.error.not_found'           => 'Candidatura non trovata.',
     'app.error.not_pending'         => 'La candidatura è già stata valutata.',
     'app.error.bad_status'          => 'Operazione non valida.',
+
+    /* ------------------------------------------------------- Onboarding (R-Moat M5, issue #45) ---- */
+    'onboard.step_of'                    => 'Passo {n} di 3',
+    // Flusso Atleta · step 1/3 (dedup — promemoria, non ricerca per similarità: vedi TODO nella view).
+    'onboard.athlete.dedup.title'        => 'Un attimo: sei già su Spoome?',
+    'onboard.athlete.dedup.sub'          => 'Potrebbe già esistere un profilo non rivendicato che sembra il tuo. Se è uno di questi, rivendicalo: mantieni la cronologia e i risultati già presenti.',
+    'onboard.athlete.dedup.unclaimed'    => 'Non rivendicato',
+    'onboard.athlete.dedup.claim_cta'    => 'È il mio profilo → Rivendica',
+    'onboard.athlete.dedup.search_cta'   => 'Cerca il tuo profilo esistente',
+    'onboard.athlete.dedup.none'         => 'Nessuno di questi è il mio profilo',
+    'onboard.athlete.dedup.err_fallback' => 'Non siamo riusciti a cercare profili esistenti. Continua pure: potrai comunque cercare e rivendicare più tardi da /atleti.',
+    // Flusso Atleta · step 2/3 (completa profilo).
+    'onboard.athlete.complete.title'          => 'Due dettagli e sei pronto',
+    'onboard.athlete.complete.sub'            => 'Solo ciò che serve per mostrarti opportunità mirate.',
+    'onboard.athlete.complete.photo_label'    => 'Foto profilo (facoltativa)',
+    'onboard.athlete.complete.continue_anyway' => 'Continua comunque',
+    // Flusso Atleta · step 3/3 (opportunità pre-filtrate).
+    'onboard.athlete.opps.title'         => 'Le opportunità della tua disciplina',
+    'onboard.athlete.opps.no_sport'      => 'Imposta la tua disciplina per vedere opportunità mirate',
+    'onboard.athlete.opps.no_sport_cta'  => 'Imposta la tua disciplina',
+    'onboard.athlete.opps.follow_cta'    => 'Segui atleti e società di {sport}',
+    'onboard.athlete.opps.finish'        => 'Vai al tuo profilo',
+    // Flusso Società/Federazione · step 1/3 (pagina in breve).
+    'onboard.org.setup.title'       => 'La vostra pagina, in breve',
+    'onboard.org.setup.sub'         => 'Le pagine verificate compaiono con badge nelle Opportunità e nei profili affiliati.',
+    'onboard.org.setup.logo_label'  => 'Logo',
+    // Flusso Società/Federazione · step 2/3 (gate di verifica). NB: la richiesta self-serve NON esiste
+    // ancora (decisione di scope M5) — 'evidence'/'submit' restano vocabolario pronto per quando verrà
+    // costruita (vedi TODO in views/pages/onboarding/org-2.php), oggi non mostrati.
+    'onboard.org.verify.title'      => 'Verificate la pagina per pubblicare',
+    'onboard.org.verify.why'        => 'Solo le pagine verificate possono pubblicare opportunità: è quello che rende affidabile ogni annuncio per chi lo legge.',
+    'onboard.org.verify.evidence'   => 'Evidenza (tesseramento, sito ufficiale, PEC, profilo social istituzionale)',
+    'onboard.org.verify.submit'     => 'Richiedi la verifica',
+    'onboard.org.verify.pending'    => 'In revisione — ve lo confermiamo appena verificato, di solito entro 48 ore.',
+    'onboard.org.verify.admin_only' => 'La verifica non è ancora self-service: il nostro team verifica la vostra pagina appena possibile, di norma entro qualche giorno lavorativo. Nel frattempo potete completare il resto del profilo.',
+    'onboard.org.verify.confirmed'  => 'Pagina verificata',
+    'onboard.org.verify.go_publish' => 'Pubblicate la prima opportunità',
+    // Banner di ripresa (non intrusivi — mai un modale) mostrati sulla pagina profilo del proprietario.
+    'onboard.banner.athlete.text'   => 'Completa il tuo profilo per vedere opportunità su misura per te.',
+    'onboard.banner.athlete.cta'    => 'Completa profilo',
+    'onboard.banner.org.text'       => 'La vostra pagina è verificata: pubblicate la prima opportunità.',
+    'onboard.banner.org.cta'        => 'Pubblica un\'opportunità',
 ];

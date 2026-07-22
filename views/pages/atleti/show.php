@@ -18,6 +18,7 @@ $canManageAff = $canManageAff ?? false;
 // Vista proprietario (stile Instagram): barra "Modifica" + insight visite + sezione Post.
 $canManage    = $canManage ?? false;
 $insights     = $insights ?? null;
+$onboardingBanner = $onboardingBanner ?? null;
 $profilePosts = $profilePosts ?? [];
 $myHandle     = $myHandle ?? '';
 $affReturn = 'atleti/' . $p['handle'];
@@ -191,6 +192,20 @@ if ($location !== '') {
                         <?php endif; ?>
                     </a>
                 <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($onboardingBanner === 'athlete_complete'): ?>
+            <div class="profile-onboard-banner">
+                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                <p><?= e(t('onboard.banner.athlete.text')) ?></p>
+                <a class="btn btn-primary btn-sm" href="<?= e(url('onboarding/atleta/profilo')) ?>"><?= e(t('onboard.banner.athlete.cta')) ?></a>
+            </div>
+        <?php elseif ($onboardingBanner === 'org_first_opportunity'): ?>
+            <div class="profile-onboard-banner">
+                <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+                <p><?= e(t('onboard.banner.org.text')) ?></p>
+                <a class="btn btn-primary btn-sm" href="<?= e(url('opportunita/pubblica')) ?>"><?= e(t('onboard.banner.org.cta')) ?></a>
             </div>
         <?php endif; ?>
 

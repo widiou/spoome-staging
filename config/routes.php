@@ -29,6 +29,7 @@ use Spoome\Http\Controllers\Web\AffiliationController as WebAffiliation;
 use Spoome\Http\Controllers\Web\RecommendationController as WebReco;
 use Spoome\Http\Controllers\Web\ClaimController as WebClaim;
 use Spoome\Http\Controllers\Web\OpportunityController as WebOpportunity;
+use Spoome\Http\Controllers\Web\OnboardingController as WebOnboarding;
 use Spoome\Http\Controllers\Web\SeoController as WebSeo;
 use Spoome\Http\Controllers\Web\Admin\DashboardController as AdminDashboard;
 use Spoome\Http\Controllers\Web\Admin\AuthController as AdminAuth;
@@ -217,6 +218,16 @@ $router->post('/opportunita/{id}/chiudi', [WebOpportunity::class, 'close'], [$au
 // Decisioni dell'org sulle candidature ricevute (accetta / non-seleziona).
 $router->post('/candidature/{id}/accetta', [WebOpportunity::class, 'acceptApplication'], [$auth, $csrf]);
 $router->post('/candidature/{id}/rifiuta', [WebOpportunity::class, 'rejectApplication'], [$auth, $csrf]);
+
+// Onboarding beachhead (R-Moat M5, issue #45): 3 step Atleta + 3 step Società/Federazione. Solo GET —
+// ogni step SCRIVE attraverso rotte web già esistenti (POST /profilo, POST /opportunita), mai endpoint
+// nuovi. Ingresso automatico: vedi AuthController::login/verifyEmail (atleta) e PageController::create
+// (società). Ripresa: banner non intrusivo su /atleti/{handle} quando l'owner guarda la propria pagina.
+$router->get('/onboarding/atleta', [WebOnboarding::class, 'athleteStep1'], [$auth]);
+$router->get('/onboarding/atleta/profilo', [WebOnboarding::class, 'athleteStep2'], [$auth]);
+$router->get('/onboarding/atleta/opportunita', [WebOnboarding::class, 'athleteStep3'], [$auth]);
+$router->get('/onboarding/societa', [WebOnboarding::class, 'orgStep1'], [$auth]);
+$router->get('/onboarding/societa/verifica', [WebOnboarding::class, 'orgStep2'], [$auth]);
 
 // Notifiche in-app
 $router->get('/notifiche', [\Spoome\Http\Controllers\Web\NotificationController::class, 'index'], [$auth]);

@@ -113,6 +113,16 @@ final class AuthController extends Controller
             return;
         }
 
+        // Onboarding (R-Moat M5, #45): ingresso automatico nel flusso Atleta al PRIMO login successivo
+        // alla registrazione. Solo sul ramo di successo GENUINO (mai su `email_taken`, che qui `$result->ok`
+        // distingue correttamente pur mostrando la stessa risposta anti-enumeration all'utente) — il flag
+        // vive lato server in sessione, invisibile all'esterno, e sopravvive a Session::regenerate() in
+        // login()/verifyEmail() (i dati di sessione sono preservati, solo l'id è rigenerato). Solo per
+        // 'atleta': 'fan' non ha una copy dedicata nel design di Bianca, resta il comportamento normale.
+        if ($result->ok && $data['profile_type'] === 'atleta') {
+            Session::set('onboard_pending', 'atleta');
+        }
+
         // Anti-enumeration: successo ed "email già usata" danno la stessa risposta.
         Session::flash(I18n::t('auth.flash.registered'), 'success');
         Response::redirect('accedi');
@@ -147,7 +157,7 @@ final class AuthController extends Controller
         // ok → data è l'entità User; #4/#5 richiedono role + sessionEpoch per fissare l'epoch/ancore in sessione.
         $user = $result->data;
         $this->startUserSession((int) $user->id, $user->role, $user->sessionEpoch);
-        Response::redirect('');
+        Response::redirect($this->consumeOnboardingRedirect() ?? '');
     }
 
     public function logout(Request $request): void
@@ -195,7 +205,7 @@ final class AuthController extends Controller
 
         $this->startUserSession($userId, $user->role, $user->sessionEpoch);
         Session::flash(I18n::t('auth.flash.verified'), 'success');
-        Response::redirect('');
+        Response::redirect($this->consumeOnboardingRedirect() ?? '');
     }
 
     /* --------------------------------------------------- PASSWORD RESET ---- */
@@ -267,6 +277,19 @@ final class AuthController extends Controller
     }
 
     /* ------------------------------------------------------------ helpers ---- */
+
+    /**
+     * Onboarding (R-Moat M5, #45): consuma il flag "di ritorno dalla registrazione" impostato da register()
+     * e ritorna il path dell'onboarding Atleta, oppure null (comportamento normale). One-shot: il flag
+     * è rimosso qui, così un login successivo non ri-innesca l'onboarding all'infinito — la ripresa di
+     * un flusso abbandonato passa dal banner in Profilo (mai da qui).
+     */
+    private function consumeOnboardingRedirect(): ?string
+    {
+        $pending = Session::get('onboard_pending');
+        Session::forget('onboard_pending');
+        return $pending === 'atleta' ? 'onboarding/atleta' : null;
+    }
 
     private function renderRegister(ProfileRepository $repo, ?string $error, array $old): void
     {
