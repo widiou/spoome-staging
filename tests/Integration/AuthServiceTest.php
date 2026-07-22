@@ -12,6 +12,7 @@ use Spoome\Domain\Auth\AuthService;
 use Spoome\Domain\Auth\CurrentUser;
 use Spoome\Domain\Auth\EmailVerificationService;
 use Spoome\Domain\Auth\PasswordResetService;
+use Spoome\Domain\Users\User;
 use Spoome\Domain\Users\UserRepository;
 use Spoome\Support\Str;
 
@@ -208,17 +209,17 @@ final class AuthServiceTest extends TestCase
     {
         $r = $this->service()->register('nuovo@demo.spoome.local', self::STRONG_PW, 'Nuovo Utente', 'atleta', '10.0.0.1');
 
-        $this->assertTrue($r['ok'], 'register deve riuscire con dati validi');
-        $this->assertIsInt($r['userId']);
+        $this->assertTrue($r->ok, 'register deve riuscire con dati validi');
+        $this->assertIsInt($r->data['userId']);
 
         $userRow = $this->pdo->prepare('SELECT * FROM users WHERE id = :id');
-        $userRow->execute(['id' => $r['userId']]);
+        $userRow->execute(['id' => $r->data['userId']]);
         $user = $userRow->fetch();
         $this->assertNotFalse($user, 'la riga utente deve esistere');
         $this->assertSame('pending', $user['status']);
 
         $profileRow = $this->pdo->prepare('SELECT * FROM profiles WHERE user_id = :uid');
-        $profileRow->execute(['uid' => $r['userId']]);
+        $profileRow->execute(['uid' => $r->data['userId']]);
         $profile = $profileRow->fetch();
         $this->assertNotFalse($profile, 'il profilo deve essere creato nella stessa registrazione');
         $this->assertSame(self::TYPE_ATLETA_ID, (int) $profile['profile_type_id']);
@@ -226,18 +227,18 @@ final class AuthServiceTest extends TestCase
         $memberRow = $this->pdo->prepare(
             "SELECT role FROM profile_members WHERE profile_id = :pid AND user_id = :uid"
         );
-        $memberRow->execute(['pid' => $profile['id'], 'uid' => $r['userId']]);
+        $memberRow->execute(['pid' => $profile['id'], 'uid' => $r->data['userId']]);
         $this->assertSame('owner', $memberRow->fetchColumn(), 'la owner-row autoritativa deve esistere da subito');
     }
 
     public function testRegisterRejectsAlreadyTakenEmailWithoutLeakingSideEffects(): void
     {
         $first = $this->service()->register('doppio@demo.spoome.local', self::STRONG_PW, 'Primo', 'atleta', '10.0.0.2');
-        $this->assertTrue($first['ok']);
+        $this->assertTrue($first->ok);
 
         $second = $this->service()->register('doppio@demo.spoome.local', self::STRONG_PW, 'Secondo', 'atleta', '10.0.0.2');
-        $this->assertFalse($second['ok']);
-        $this->assertSame('email_taken', $second['error']);
+        $this->assertFalse($second->ok);
+        $this->assertSame('email_taken', $second->error);
 
         $count = (int) $this->pdo->query("SELECT COUNT(*) FROM users WHERE email = 'doppio@demo.spoome.local'")->fetchColumn();
         $this->assertSame(1, $count, 'un solo utente deve esistere per quella email');
@@ -246,8 +247,8 @@ final class AuthServiceTest extends TestCase
     public function testRegisterRejectsOrganizationTypeAsSelfRegistration(): void
     {
         $r = $this->service()->register('org@demo.spoome.local', self::STRONG_PW, 'Società X', 'societa', '10.0.0.3');
-        $this->assertFalse($r['ok']);
-        $this->assertSame('org_not_allowed', $r['error']);
+        $this->assertFalse($r->ok);
+        $this->assertSame('org_not_allowed', $r->error);
         $this->assertFalse((new UserRepository($this->pdo))->emailExists('org@demo.spoome.local'));
     }
 
@@ -258,8 +259,8 @@ final class AuthServiceTest extends TestCase
         // l'utente è già stato creato nella stessa transazione: deve sparire anche lui.
         $r = $this->service()->register('atomico@demo.spoome.local', self::STRONG_PW, 'Atomico', 'atleta', '10.0.0.4', 999999);
 
-        $this->assertFalse($r['ok']);
-        $this->assertSame('db_error', $r['error']);
+        $this->assertFalse($r->ok);
+        $this->assertSame('db_error', $r->error);
         $this->assertFalse(
             (new UserRepository($this->pdo))->emailExists('atomico@demo.spoome.local'),
             'la creazione utente deve essere annullata dal rollback (atomicità register)'
@@ -271,11 +272,11 @@ final class AuthServiceTest extends TestCase
         $ip = '10.0.0.9';
         for ($i = 1; $i <= 10; $i++) {
             $r = $this->service()->register("utente{$i}@demo.spoome.local", self::STRONG_PW, "Utente {$i}", 'atleta', $ip);
-            $this->assertTrue($r['ok'], "il tentativo $i deve riuscire (sotto soglia)");
+            $this->assertTrue($r->ok, "il tentativo $i deve riuscire (sotto soglia)");
         }
         $r11 = $this->service()->register('utente11@demo.spoome.local', self::STRONG_PW, 'Utente 11', 'atleta', $ip);
-        $this->assertFalse($r11['ok']);
-        $this->assertSame('throttled', $r11['error']);
+        $this->assertFalse($r11->ok);
+        $this->assertSame('throttled', $r11->error);
     }
 
     /* ---------------------------------------------------------------------- login() ---- */
@@ -285,27 +286,27 @@ final class AuthServiceTest extends TestCase
         $ip = '20.0.0.1';
         $svc = $this->service();
         $victim = $svc->register('vittima@demo.spoome.local', self::STRONG_PW, 'Vittima', 'atleta', '9.9.9.9');
-        $this->assertTrue($victim['ok']);
-        (new UserRepository($this->pdo))->markVerifiedAndActive($victim['userId']);
+        $this->assertTrue($victim->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($victim->data['userId']);
 
         // L'attaccante fallisce 5 volte contro un'email fantasma, dallo stesso IP.
         for ($i = 0; $i < 5; $i++) {
             $r = $svc->login('fantasma@demo.spoome.local', 'sbagliata123', $ip);
-            $this->assertFalse($r['ok']);
+            $this->assertFalse($r->ok);
         }
 
         // Anche il login CORRETTO della vittima, dallo STESSO IP, viene bloccato: throttle per-IP.
         $r = $svc->login('vittima@demo.spoome.local', self::STRONG_PW, $ip);
-        $this->assertFalse($r['ok']);
-        $this->assertSame(429, $r['code']);
+        $this->assertFalse($r->ok);
+        $this->assertSame(429, $r->code);
     }
 
     public function testLoginNotBlockedFromDifferentIpDespiteFailedAttemptsOnSameEmail(): void
     {
         $svc = $this->service();
         $victim = $svc->register('vittima2@demo.spoome.local', self::STRONG_PW, 'Vittima 2', 'atleta', '9.9.9.10');
-        $this->assertTrue($victim['ok']);
-        (new UserRepository($this->pdo))->markVerifiedAndActive($victim['userId']);
+        $this->assertTrue($victim->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($victim->data['userId']);
 
         // L'attaccante fallisce 5 volte contro l'email della vittima, ma da un IP diverso ogni volta
         // (o comunque diverso da quello con cui la vittima farà login): il blocco è per-IP, non
@@ -315,23 +316,23 @@ final class AuthServiceTest extends TestCase
         }
 
         $r = $svc->login('vittima2@demo.spoome.local', self::STRONG_PW, '20.0.0.3');
-        $this->assertTrue($r['ok'], 'un IP pulito non deve mai essere bloccato da fallimenti su un altro IP');
+        $this->assertTrue($r->ok, 'un IP pulito non deve mai essere bloccato da fallimenti su un altro IP');
     }
 
     public function testLoginAntiEnumerationNonexistentEmailBehavesLikeWrongPassword(): void
     {
         $svc = $this->service();
         $existing = $svc->register('reale@demo.spoome.local', self::STRONG_PW, 'Reale', 'atleta', '30.0.0.1');
-        $this->assertTrue($existing['ok']);
-        (new UserRepository($this->pdo))->markVerifiedAndActive($existing['userId']);
+        $this->assertTrue($existing->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($existing->data['userId']);
 
         $rNonexistent = $svc->login('fantasma2@demo.spoome.local', 'qualsiasi123', '30.0.0.2');
         $rWrongPass   = $svc->login('reale@demo.spoome.local', 'passwordSbagliata1', '30.0.0.3');
 
-        $this->assertFalse($rNonexistent['ok']);
-        $this->assertFalse($rWrongPass['ok']);
-        $this->assertSame($rWrongPass['code'], $rNonexistent['code'], 'stesso codice: nessun segnale di enumerazione');
-        $this->assertSame($rWrongPass['error'], $rNonexistent['error'], 'stesso messaggio: nessun segnale di enumerazione');
+        $this->assertFalse($rNonexistent->ok);
+        $this->assertFalse($rWrongPass->ok);
+        $this->assertSame($rWrongPass->code, $rNonexistent->code, 'stesso codice: nessun segnale di enumerazione');
+        $this->assertSame($rWrongPass->error, $rNonexistent->error, 'stesso messaggio: nessun segnale di enumerazione');
 
         // Il tentativo su email inesistente è comunque registrato (per il throttle), a riprova
         // che il codice passa comunque dal path di verifica (bcrypt fittizio) prima di rispondere.
@@ -344,31 +345,51 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('pending@demo.spoome.local', self::STRONG_PW, 'Pendente', 'atleta', '40.0.0.1');
-        $this->assertTrue($r['ok']);
+        $this->assertTrue($r->ok);
         // Nessuna verifica email: l'utente resta 'pending'.
 
         // Fuori produzione (beta/staging/testing): il login pending è ammesso.
         $rBeta = $svc->login('pending@demo.spoome.local', self::STRONG_PW, '40.0.0.2');
-        $this->assertTrue($rBeta['ok'], 'in beta un utente pending deve poter accedere');
+        $this->assertTrue($rBeta->ok, 'in beta un utente pending deve poter accedere');
 
         // In produzione: il gate resta attivo.
         $_ENV['APP_ENV'] = 'production';
         putenv('APP_ENV=production');
         $rProd = $svc->login('pending@demo.spoome.local', self::STRONG_PW, '40.0.0.3');
-        $this->assertFalse($rProd['ok']);
-        $this->assertSame(403, $rProd['code']);
+        $this->assertFalse($rProd->ok);
+        $this->assertSame(403, $rProd->code);
     }
 
     public function testLoginRejectsSuspendedUserRegardlessOfEnvironment(): void
     {
         $svc = $this->service();
         $r = $svc->register('sospeso@demo.spoome.local', self::STRONG_PW, 'Sospeso', 'atleta', '50.0.0.1');
-        $this->assertTrue($r['ok']);
-        $this->pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = :id")->execute(['id' => $r['userId']]);
+        $this->assertTrue($r->ok);
+        $this->pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = :id")->execute(['id' => $r->data['userId']]);
 
         $rBeta = $svc->login('sospeso@demo.spoome.local', self::STRONG_PW, '50.0.0.2');
-        $this->assertFalse($rBeta['ok']);
-        $this->assertSame(403, $rBeta['code']);
+        $this->assertFalse($rBeta->ok);
+        $this->assertSame(403, $rBeta->code);
+    }
+
+    /**
+     * Contratto ServiceResult del login riuscito (integrazione #4/#5): ok=true e `data` è l'entità
+     * User completa di id/role/sessionEpoch — i campi che startUserSession() legge per fissare epoch
+     * e ancore di timeout in sessione. Se il refactor perdesse l'utente qui, login web/API si romperebbe.
+     */
+    public function testSuccessfulLoginExposesUserWithSessionEpochViaServiceResult(): void
+    {
+        $svc = $this->service();
+        $reg = $svc->register('epochlogin@demo.spoome.local', self::STRONG_PW, 'Epoch Login', 'atleta', '55.0.0.1');
+        $this->assertTrue($reg->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($reg->data['userId']);
+
+        $result = $svc->login('epochlogin@demo.spoome.local', self::STRONG_PW, '55.0.0.2');
+        $this->assertTrue($result->ok);
+        $this->assertInstanceOf(User::class, $result->data, 'il login riuscito deve esporre l\'entità User in data');
+        $this->assertSame($reg->data['userId'], $result->data->id);
+        $this->assertSame(0, $result->data->sessionEpoch, 'un nuovo utente ha sessionEpoch 0 (usato da startUserSession)');
+        $this->assertIsString($result->data->role);
     }
 
     /* ------------------------------------------------------------ password reset flow ---- */
@@ -384,7 +405,7 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('sospeso2@demo.spoome.local', self::STRONG_PW, 'Sospeso 2', 'atleta', '60.0.0.2');
-        $this->pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = :id")->execute(['id' => $r['userId']]);
+        $this->pdo->prepare("UPDATE users SET status = 'suspended' WHERE id = :id")->execute(['id' => $r->data['userId']]);
 
         $svc->requestPasswordReset('sospeso2@demo.spoome.local', '60.0.0.3');
         $count = (int) $this->pdo->query('SELECT COUNT(*) FROM password_resets')->fetchColumn();
@@ -395,14 +416,14 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('reset1@demo.spoome.local', self::STRONG_PW, 'Reset Uno', 'atleta', '70.0.0.1');
-        $this->assertTrue($r['ok']);
+        $this->assertTrue($r->ok);
 
         // 5 IP diversi, stessa email: il tetto per-email (3/60min) scatta indipendentemente dall'IP.
         for ($i = 1; $i <= 5; $i++) {
             $svc->requestPasswordReset('reset1@demo.spoome.local', "70.0.0.{$i}");
         }
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM password_resets WHERE user_id = :u');
-        $stmt->execute(['u' => $r['userId']]);
+        $stmt->execute(['u' => $r->data['userId']]);
         $this->assertSame(3, (int) $stmt->fetchColumn(), 'oltre 3 richieste/ora sulla stessa email vengono scartate');
     }
 
@@ -413,8 +434,8 @@ final class AuthServiceTest extends TestCase
         $ids = [];
         for ($i = 1; $i <= 6; $i++) {
             $reg = $svc->register("resetip{$i}@demo.spoome.local", self::STRONG_PW, "Reset IP {$i}", 'atleta', "81.0.0.{$i}");
-            $this->assertTrue($reg['ok']);
-            $ids[] = $reg['userId'];
+            $this->assertTrue($reg->ok);
+            $ids[] = $reg->data['userId'];
         }
         // 6 email diverse, stesso IP: il tetto per-IP (5/15min) scatta alla 6ª richiesta.
         foreach (range(1, 6) as $i) {
@@ -429,23 +450,23 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('reset2@demo.spoome.local', self::STRONG_PW, 'Reset Due', 'atleta', '90.0.0.1');
-        $this->assertTrue($r['ok']);
+        $this->assertTrue($r->ok);
 
         $prs = new PasswordResetService($this->pdo);
-        $token = $prs->issue($r['userId']);
+        $token = $prs->issue($r->data['userId']);
 
         $newPw = 'AltraSegreta9!';
         $first = $svc->resetPassword($token, $newPw, '90.0.0.2');
-        $this->assertTrue($first['ok']);
-        $this->assertSame($r['userId'], $first['userId']);
+        $this->assertTrue($first->ok);
+        $this->assertSame($r->data['userId'], $first->data['userId']);
 
         $userRow = $this->pdo->prepare('SELECT password_hash FROM users WHERE id = :id');
-        $userRow->execute(['id' => $r['userId']]);
+        $userRow->execute(['id' => $r->data['userId']]);
         $this->assertTrue(password_verify($newPw, (string) $userRow->fetchColumn()));
 
         // Monouso: lo stesso token non deve più funzionare.
         $second = $svc->resetPassword($token, 'UnaTerzaSegreta9!', '90.0.0.3');
-        $this->assertFalse($second['ok']);
+        $this->assertFalse($second->ok);
     }
 
     /** Il reset password incrementa users.session_epoch: è il segnale che invalida le sessioni web pre-reset. */
@@ -453,15 +474,15 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('epoch1@demo.spoome.local', self::STRONG_PW, 'Epoch Uno', 'atleta', '91.0.0.1');
-        $this->assertTrue($r['ok']);
+        $this->assertTrue($r->ok);
 
-        $before = (int) $this->epochOf($r['userId']);
+        $before = (int) $this->epochOf($r->data['userId']);
         $this->assertSame(0, $before, 'un nuovo utente parte con epoch 0');
 
-        $token = (new PasswordResetService($this->pdo))->issue($r['userId']);
-        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '91.0.0.2')['ok']);
+        $token = (new PasswordResetService($this->pdo))->issue($r->data['userId']);
+        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '91.0.0.2')->ok);
 
-        $this->assertSame($before + 1, (int) $this->epochOf($r['userId']), 'il reset deve incrementare session_epoch');
+        $this->assertSame($before + 1, (int) $this->epochOf($r->data['userId']), 'il reset deve incrementare session_epoch');
     }
 
     /**
@@ -474,9 +495,9 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('epoch2@demo.spoome.local', self::STRONG_PW, 'Epoch Due', 'atleta', '92.0.0.1');
-        $this->assertTrue($r['ok']);
-        (new UserRepository($this->pdo))->markVerifiedAndActive($r['userId']); // CurrentUser richiede utente attivo
-        $uid = (int) $r['userId'];
+        $this->assertTrue($r->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($r->data['userId']); // CurrentUser richiede utente attivo
+        $uid = (int) $r->data['userId'];
 
         // Sessione "loggata" con l'epoch corrente (0), come farebbe startUserSession al login.
         $_SESSION = ['user_id' => $uid, 'role' => 'member', 'session_epoch' => $this->epochOf($uid)];
@@ -486,7 +507,7 @@ final class AuthServiceTest extends TestCase
 
         // Reset password → epoch DB incrementato, ma $_SESSION porta ancora quello vecchio.
         $token = (new PasswordResetService($this->pdo))->issue($uid);
-        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '92.0.0.2')['ok']);
+        $this->assertTrue($svc->resetPassword($token, 'AltraSegreta9!', '92.0.0.2')->ok);
 
         $stale = CurrentUser::resolve(Request::capture());
         $this->assertNull($stale, 'sessione con epoch pre-reset: NON deve più risolvere l\'utente');
@@ -513,9 +534,9 @@ final class AuthServiceTest extends TestCase
     private function registerActiveUser(string $email): int
     {
         $r = $this->service()->register($email, self::STRONG_PW, 'Timeout Test', 'atleta', '99.0.0.1');
-        $this->assertTrue($r['ok']);
-        (new UserRepository($this->pdo))->markVerifiedAndActive($r['userId']);
-        return (int) $r['userId'];
+        $this->assertTrue($r->ok);
+        (new UserRepository($this->pdo))->markVerifiedAndActive($r->data['userId']);
+        return (int) $r->data['userId'];
     }
 
     /**
@@ -661,10 +682,10 @@ final class AuthServiceTest extends TestCase
         $svc = $this->service();
         $r = $svc->register('reset3@demo.spoome.local', self::STRONG_PW, 'Reset Tre', 'atleta', '90.0.1.1');
         $prs = new PasswordResetService($this->pdo);
-        $token = $prs->issue($r['userId']);
+        $token = $prs->issue($r->data['userId']);
 
         $weak = $svc->resetPassword($token, 'weak', '90.0.1.2');
-        $this->assertFalse($weak['ok']);
+        $this->assertFalse($weak->ok);
 
         // Il token deve restare valido: la policy fallisce PRIMA del consumo.
         $stmt = $this->pdo->prepare('SELECT used_at FROM password_resets WHERE token_hash = :h');
@@ -678,13 +699,13 @@ final class AuthServiceTest extends TestCase
         $ip = '90.0.2.1';
         for ($i = 0; $i < 10; $i++) {
             $r = $svc->resetPassword('token-non-valido', 'weak', $ip);
-            $this->assertFalse($r['ok']);
+            $this->assertFalse($r->ok);
         }
         $r11 = $svc->resetPassword('token-non-valido', 'weak', $ip);
-        $this->assertFalse($r11['ok']);
+        $this->assertFalse($r11->ok);
         $this->assertNotSame(
             AuthService::passwordPolicyMessage(),
-            $r11['error'],
+            $r11->error,
             'oltre soglia deve rispondere col messaggio di throttling, non con quello di policy'
         );
     }
@@ -695,16 +716,16 @@ final class AuthServiceTest extends TestCase
     {
         $svc = $this->service();
         $r = $svc->register('verifica1@demo.spoome.local', self::STRONG_PW, 'Verifica Uno', 'atleta', '95.0.0.1');
-        $this->assertTrue($r['ok']);
+        $this->assertTrue($r->ok);
 
         $evs = new EmailVerificationService($this->pdo);
-        $token = $evs->issue($r['userId']);
+        $token = $evs->issue($r->data['userId']);
 
         $userId = $svc->verifyEmail($token);
-        $this->assertSame($r['userId'], $userId);
+        $this->assertSame($r->data['userId'], $userId);
 
         $stmt = $this->pdo->prepare('SELECT status, email_verified_at FROM users WHERE id = :id');
-        $stmt->execute(['id' => $r['userId']]);
+        $stmt->execute(['id' => $r->data['userId']]);
         $row = $stmt->fetch();
         $this->assertSame('active', $row['status']);
         $this->assertNotNull($row['email_verified_at']);

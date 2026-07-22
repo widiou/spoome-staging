@@ -8,9 +8,9 @@ use Spoome\Core\Db;
 use Spoome\Core\I18n;
 use Spoome\Core\Logger;
 use Spoome\Core\Mailer;
+use Spoome\Core\ServiceResult;
 use Spoome\Domain\Profiles\ProfileMemberRepository;
 use Spoome\Domain\Profiles\ProfileRepository;
-use Spoome\Domain\Users\User;
 use Spoome\Domain\Users\UserRepository;
 use Throwable;
 
@@ -87,15 +87,20 @@ final class AuthService
 
     /**
      * Registrazione: crea utente (pending) + profilo, invia email di verifica. Atomica.
-     * @return array{ok:bool, userId?:int, error?:string}
+     *
+     * ServiceResult: ok → data `['userId' => int]` (code 201). fail → il messaggio primario porta un
+     * CODICE SEMANTICO opaco (`email_taken`/`throttled`/`invalid_type`/`org_not_allowed`/`db_error`),
+     * NON un testo localizzato: la registrazione è anti-enumeration e i suoi esiti non vanno MAI
+     * mostrati all'utente (entrambi i controller rispondono generico), il codice serve solo al
+     * branching interno del controller (es. trattare `email_taken` come successo) e ai log.
      */
-    public function register(string $email, string $password, string $displayName, string $profileTypeKey, string $ip, ?int $sportId = null): array
+    public function register(string $email, string $password, string $displayName, string $profileTypeKey, string $ip, ?int $sportId = null): ServiceResult
     {
         $email = mb_strtolower(trim($email));
 
         // Throttle anti-spam registrazioni per IP.
         if ($this->rateLimiter->tooManyByKey('reg:' . $ip, 10, 60)) {
-            return ['ok' => false, 'error' => 'throttled'];
+            return ServiceResult::fail('throttled', 429);
         }
         $this->rateLimiter->hit('reg:' . $ip, $ip);
 
@@ -104,18 +109,18 @@ final class AuthService
 
         if ($this->users->emailExists($email)) {
             // Anti-enumeration: risposta generica lato controller; qui distinguiamo per log interni.
-            return ['ok' => false, 'error' => 'email_taken'];
+            return ServiceResult::fail('email_taken', 422);
         }
         $typeId = $this->profiles->typeIdByKey($profileTypeKey);
         if ($typeId === null) {
-            return ['ok' => false, 'error' => 'invalid_type'];
+            return ServiceResult::fail('invalid_type', 422);
         }
         // Guardia anti doppio-path (difesa in profondità: i controller già filtrano la whitelist):
         // le ORGANIZZAZIONI non nascono dalla self-registration ma SOLO come pagine via PageService,
         // che stabilisce la owner-row autoritativa in `profile_members`. Iscriversi come org lascerebbe
         // il profilo con owner solo denormalizzato (profiles.user_id) e nessun roster → rischio.
         if ($this->profiles->isOrganizationKey($profileTypeKey)) {
-            return ['ok' => false, 'error' => 'org_not_allowed'];
+            return ServiceResult::fail('org_not_allowed', 422);
         }
 
         $handle = $this->profiles->uniqueHandle($displayName);
@@ -133,11 +138,11 @@ final class AuthService
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
-            return ['ok' => false, 'error' => 'db_error'];
+            return ServiceResult::fail('db_error', 500);
         }
 
         $this->sendVerificationEmail($userId, $email);
-        return ['ok' => true, 'userId' => $userId];
+        return ServiceResult::ok(['userId' => $userId], [], 201);
     }
 
     /**
@@ -179,16 +184,20 @@ final class AuthService
 
     /**
      * Login: throttling + verifica credenziali senza user-enumeration.
-     * @return array{ok:bool, user?:User, error?:string, code?:int}
+     *
+     * ServiceResult: ok → data = l'entità `User` (il controller ne legge id/role/sessionEpoch per
+     * aprire sessione o emettere token). fail → `error` messaggio già localizzato + `code` HTTP
+     * (429 throttled / 401 credenziali / 403 pending|suspended). Anti-enumeration: credenziali errate
+     * ed email inesistente producono lo STESSO error e lo STESSO code.
      */
-    public function login(string $email, string $password, string $ip): array
+    public function login(string $email, string $password, string $ip): ServiceResult
     {
         $email = mb_strtolower(trim($email));
 
         // Blocco per IP (non per email): impedisce il DoS di lockout mirato di una vittima.
         if ($this->rateLimiter->tooManyByIp($ip)) {
             Logger::security('Login bloccato per throttling', ['email' => $email, 'ip' => $ip]);
-            return ['ok' => false, 'error' => I18n::t('auth.error.throttled'), 'code' => 429];
+            return ServiceResult::fail(I18n::t('auth.error.throttled'), 429);
         }
 
         $user = $this->users->findByEmail($email);
@@ -203,7 +212,7 @@ final class AuthService
         if (!$valid) {
             $this->rateLimiter->record($email, $ip, false);
             Logger::security('Login fallito', ['email' => $email, 'ip' => $ip]);
-            return ['ok' => false, 'error' => I18n::t('auth.error.credentials'), 'code' => 401];
+            return ServiceResult::fail(I18n::t('auth.error.credentials'), 401);
         }
 
         // Credenziali corrette: possiamo rivelare lo stato (l'utente ha provato di essere lui).
@@ -211,18 +220,18 @@ final class AuthService
         // dove non c'è consegna email reale → indirizzi @spoome.local) un utente pending non potrebbe MAI
         // accedere: consentiamo il login così la beta resta testabile/usabile. Produzione invariata.
         if ($user->isPending() && Config::isProduction()) {
-            return ['ok' => false, 'error' => I18n::t('auth.error.pending'), 'code' => 403];
+            return ServiceResult::fail(I18n::t('auth.error.pending'), 403);
         }
         // Blocca SEMPRE i sospesi (moderazione), in ogni ambiente. NB: non usare !isActive() qui — fuori
         // produzione i pending sono ammessi dal gate sopra, e !isActive() li rifiuterebbe rendendo morto
         // l'allowance beta (nuovi iscritti mai in grado di loggare senza email di verifica reale).
         if ($user->isSuspended()) {
-            return ['ok' => false, 'error' => I18n::t('auth.error.inactive'), 'code' => 403];
+            return ServiceResult::fail(I18n::t('auth.error.inactive'), 403);
         }
 
         $this->rateLimiter->record($email, $ip, true);
         $this->users->recordLogin($user->id);
-        return ['ok' => true, 'user' => $user];
+        return ServiceResult::ok($user);
     }
 
     /** Verifica email da token: attiva l'utente. @return int|null userId */
@@ -260,26 +269,28 @@ final class AuthService
 
     /**
      * Reset password: valida il token (consumo ATOMICO), aggiorna la password, revoca i token API.
-     * @return array{ok:bool, error?:string, userId?:int}
+     *
+     * ServiceResult: ok → data `['userId' => int]`. fail → `error` messaggio già localizzato
+     * (throttled 429 / password policy 422 / token invalido 422), mostrabile all'utente.
      */
-    public function resetPassword(string $rawToken, string $newPassword, string $ip = 'unknown'): array
+    public function resetPassword(string $rawToken, string $newPassword, string $ip = 'unknown'): ServiceResult
     {
         // Throttle per IP contro brute-force del token (già improbabile: token a 256 bit).
         if ($this->rateLimiter->tooManyByKey('pwr:' . $ip, 10, 15)) {
-            return ['ok' => false, 'error' => I18n::t('auth.error.throttled')];
+            return ServiceResult::fail(I18n::t('auth.error.throttled'), 429);
         }
         $this->rateLimiter->hit('pwr:' . $ip, $ip);
 
         if (!self::isStrongPassword($newPassword)) {
-            return ['ok' => false, 'error' => self::passwordPolicyMessage()];
+            return ServiceResult::fail(self::passwordPolicyMessage(), 422);
         }
         // Consumo atomico: valida e marca usato in un colpo solo (no race sul monouso).
         $userId = $this->passwordReset->resolveAndConsume($rawToken);
         if ($userId === null) {
-            return ['ok' => false, 'error' => I18n::t('auth.error.reset_invalid')];
+            return ServiceResult::fail(I18n::t('auth.error.reset_invalid'), 422);
         }
         $this->users->updatePassword($userId, password_hash($newPassword, PASSWORD_DEFAULT));
         $this->tokens->revokeAllForUser($userId); // invalida sessioni token dopo cambio password
-        return ['ok' => true, 'userId' => $userId];
+        return ServiceResult::ok(['userId' => $userId]);
     }
 }

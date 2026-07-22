@@ -57,13 +57,15 @@ final class AuthController extends ApiController
         }
 
         $result = (new AuthService())->login((string) $data['email'], (string) $data['password'], $request->ip());
-        if (!$result['ok']) {
-            Response::error($result['error'], $result['code'] ?? 401);
+        if (!$result->ok) {
+            Response::error($result->error ?? I18n::t('api.error.invalid_data'), $result->code >= 400 ? $result->code : 401);
             return;
         }
 
+        // ok → data è l'entità User.
+        $user   = $result->data;
         $device = isset($data['device']) ? (string) $data['device'] : ($_SERVER['HTTP_USER_AGENT'] ?? null);
-        $tokens = (new TokenService())->issue($result['user']->id, $device);
+        $tokens = (new TokenService())->issue($user->id, $device);
         Response::json([
             'token_type'    => 'Bearer',
             'access_token'  => $tokens['access'],
@@ -153,8 +155,8 @@ final class AuthController extends ApiController
             return;
         }
         $result = (new AuthService())->resetPassword($token, $pw, $request->ip());
-        if (!$result['ok']) {
-            Response::error($result['error'] ?? I18n::t('auth.error.reset_failed'), 400);
+        if (!$result->ok) {
+            Response::error($result->error ?? I18n::t('auth.error.reset_failed'), 400);
             return;
         }
         Response::json(['message' => I18n::t('api.auth.reset_done')]);
