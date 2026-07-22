@@ -557,7 +557,7 @@ return [
     'admin.logs.lv.emergency'     => 'Emergency',
 
     // Moderazione contenuti
-    'admin.mod.subtitle'          => '{n} post pubblicati. Rimuovi ciò che viola le regole.',
+    'admin.mod.subtitle'          => 'circa {n} post pubblicati. Rimuovi ciò che viola le regole.',
     'admin.mod.privacy_note'      => 'I messaggi diretti sono privati fra profili connessi e non sono mostrati qui.',
     'admin.mod.none'              => 'Nessun post pubblicato.',
     'admin.mod.delete'            => 'Elimina post',

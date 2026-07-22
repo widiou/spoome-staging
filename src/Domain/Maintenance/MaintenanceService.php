@@ -12,6 +12,7 @@ use Spoome\Domain\Auth\PasswordResetService;
 use Spoome\Domain\Auth\RateLimiter;
 use Spoome\Domain\Auth\TokenService;
 use Spoome\Domain\Events\EventRepository;
+use Spoome\Domain\Feed\ActivityRepository;
 use Spoome\Domain\Links\LinkPreviewRepository;
 use Spoome\Domain\Notifications\NotificationRepository;
 use Spoome\Support\Str;
@@ -19,8 +20,8 @@ use Spoome\Support\Str;
 /**
  * Manutenzione schedulabile (cron SiteGround via jobs/maintenance.php):
  *  1) PURGE — pulisce le tabelle che altrimenti crescono illimitate (GDPR + costo storage/indice):
- *     tentativi di login vecchi, token scaduti/revocati/usati, log applicativi e eventi oltre retention,
- *     cache anteprime link scadute. Ogni DELETE è parametrizzato e cancella a BATCH (LIMIT in loop)
+ *     tentativi di login vecchi, token scaduti/revocati/usati, log applicativi, eventi e attività di
+ *     feed oltre retention, cache anteprime link scadute. Ogni DELETE è parametrizzato e cancella a BATCH (LIMIT in loop)
  *     per non tenere lock lunghi.
  *  2) RECONCILE — riallinea i contatori denormalizzati alla source-of-truth (COUNT). Il mantenimento
  *     incrementale è già atomico e live (drift atteso = 0); questa è difesa in profondità, NON distruttiva:
@@ -36,6 +37,7 @@ final class MaintenanceService
     public const APP_LOGS_DAYS        = 90;
     public const USER_EVENTS_DAYS     = 30;
     public const NOTIFICATIONS_DAYS   = 90;   // solo notifiche già lette
+    public const ACTIVITIES_DAYS      = 365;  // attività di feed (contenuto visibile: finestra ampia)
 
     /** Soglia di default per l'alert spike errori/24h (sovrascrivibile via ALERT_ERROR_THRESHOLD_24H). */
     public const DEFAULT_ERROR_THRESHOLD_24H = 50;
@@ -175,6 +177,7 @@ final class MaintenanceService
             'password_resets'     => (new PasswordResetService($this->pdo))->purgeStale($batch),
             'app_logs'            => Logger::purge(self::APP_LOGS_DAYS, $batch),
             'user_events'         => (new EventRepository($this->pdo))->purgeOlderThan(self::USER_EVENTS_DAYS, $batch),
+            'activities'          => (new ActivityRepository($this->pdo))->purgeOlderThan(self::ACTIVITIES_DAYS, $batch),
             'link_previews'       => (new LinkPreviewRepository($this->pdo))->purgeExpired($batch),
             'notifications'       => (new NotificationRepository($this->pdo))->purgeRead(self::NOTIFICATIONS_DAYS, $batch),
         ];

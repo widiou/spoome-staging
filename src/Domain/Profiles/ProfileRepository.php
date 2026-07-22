@@ -552,13 +552,55 @@ final class ProfileRepository
         return ['items' => $stmt->fetchAll(), 'total' => $total];
     }
 
-    /** Profili pubblici connessi (accepted) a $profileId, in entrambi i versi. */
+    /**
+     * Profili pubblici connessi (accepted) a $profileId, in entrambi i versi.
+     *
+     * Riscritto da `WHERE requester_id = :x OR addressee_id = :x` (non-sargable: l'OR su due colonne
+     * diverse forza full-scan/index-merge) a UNION ALL di due SELECT ognuna servita da un indice
+     * dedicato: il ramo "richieste inviate" colpisce idx_conn_requester (requester_id, status),
+     * il ramo "richieste ricevute" idx_conn_addressee (addressee_id, status). La UNION è ristretta
+     * alla sola tabella connections (proiezione leggera other_id + ord); il join a `profiles` avviene
+     * poi per PRIMARY KEY. L'ORDER BY resta identico (responded_at DESC, id DESC) → parità di risultati.
+     *
+     * PDO EMULATE_PREPARES=false: il valore di $profileId compare in ENTRAMBI i rami → placeholder
+     * DISTINTI (:me1 / :me2), entrambi bindati. Riusare lo stesso nome darebbe il 500 HY093 storico.
+     *
+     * UNION ALL (non DISTINCT) = parità esatta con l'OR-join precedente: requester_id <> addressee_id
+     * (nessun self-connection) garantisce che una singola riga connections non possa mai soddisfare
+     * entrambi i rami, quindi non nascono duplicati dallo stesso record; l'assenza di dedup evita
+     * anche il sort di deduplica.
+     */
     public function connectionsOf(int $profileId, int $page = 1, int $perPage = 24): array
     {
-        $join = "JOIN connections c ON ((c.requester_id = :pida AND c.addressee_id = p.id)
-                    OR (c.addressee_id = :pidb AND c.requester_id = p.id)) AND c.status = 'accepted'";
-        $params = [':pida' => $profileId, ':pidb' => $profileId];
-        return $this->listByConnJoin($join, $params, 'c.responded_at', $page, $perPage);
+        $connUnion =
+            "JOIN (
+                SELECT addressee_id AS other_id, responded_at AS ord
+                  FROM connections WHERE requester_id = :me1 AND status = 'accepted'
+                UNION ALL
+                SELECT requester_id AS other_id, responded_at AS ord
+                  FROM connections WHERE addressee_id = :me2 AND status = 'accepted'
+             ) cx ON cx.other_id = p.id";
+
+        $countStmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM profiles p {$connUnion} WHERE p.visibility = 'public'"
+        );
+        $countStmt->bindValue(':me1', $profileId, PDO::PARAM_INT);
+        $countStmt->bindValue(':me2', $profileId, PDO::PARAM_INT);
+        $countStmt->execute();
+        $total = (int) $countStmt->fetchColumn();
+
+        $offset = Pagination::of($page, $perPage)->offset();
+        $stmt = $this->pdo->prepare(
+            self::SELECT_ENRICHED . " {$connUnion} WHERE p.visibility = 'public'
+             ORDER BY cx.ord DESC, p.id DESC LIMIT :lim OFFSET :off"
+        );
+        $stmt->bindValue(':me1', $profileId, PDO::PARAM_INT);
+        $stmt->bindValue(':me2', $profileId, PDO::PARAM_INT);
+        $stmt->bindValue(':lim', $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return ['items' => $stmt->fetchAll(), 'total' => $total];
     }
 
     /** Profili pubblici che hanno una richiesta di connessione IN ENTRATA verso $profileId (pending). */
