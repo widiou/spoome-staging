@@ -245,6 +245,9 @@ a:hover { text-decoration: underline; }
 .profile-name { font-size: clamp(1.9rem, 6vw, 2.8rem); margin: 0 0 var(--sp-1); display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
 .profile-verified { font-family: var(--font-body); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--c-muted-text); background: transparent; border: 1px solid var(--c-border-hi); padding: 3px 10px; border-radius: var(--radius-pill); }
 .profile-verified .fa-circle-check { color: var(--c-text); }
+/* Badge "verificato dalla società" (M3): distinto dal badge ufficiale staff — icona in accento giallo
+   (il testo differisce già, quindi il colore è decorativo, non l'unico segnale). Nessun verde. */
+.profile-verified-club .fa-circle-check { color: var(--c-yellow); }
 .profile-type { text-transform: uppercase; letter-spacing: .05em; font-size: .85rem; color: var(--c-muted-text); margin: 0 0 var(--sp-2); }
 .profile-headline { color: var(--c-text); font-size: 1.1rem; margin: 0 0 var(--sp-3); }
 .profile-facts { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: 0; margin: 0; }

@@ -212,6 +212,76 @@ final class ProfileRepository
         $this->pdo->prepare($sql)->execute(['id' => $profileId]);
     }
 
+    /**
+     * Riga sintetica per le azioni admin che agiscono DIRETTAMENTE su un profilo per id (verifica
+     * pagina-org). Include `is_organization` (JOIN profile_types) così il Service può imporre che il
+     * bersaglio sia una pagina-org, e `user_id` (proprietario, NULL se unclaimed) per la notifica.
+     * L'id è risolto server-side: nessuna fiducia oltre l'id numerico (IDOR-safe).
+     * @return array{id:int,user_id:?int,handle:string,display_name:string,verified_at:?string,claim_status:string,is_organization:int}|null
+     */
+    public function findAdminRowById(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT p.id, p.user_id, p.handle, p.display_name, p.verified_at, p.claim_status,
+                    pt.is_organization
+             FROM profiles p
+             JOIN profile_types pt ON pt.id = p.profile_type_id
+             WHERE p.id = :id LIMIT 1'
+        );
+        $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    /**
+     * Elenco paginato delle PAGINE-organizzazione (is_organization = 1) per l'area admin di verifica.
+     * Filtro testo opzionale (display_name/handle) e filtro stato-verifica opzionale ('verified' /
+     * 'unverified'). Placeholder distinti (:q1/:q2), COUNT senza LIMIT/OFFSET → nessun bind riusato.
+     * @return array{items:array<int,array>,total:int}
+     */
+    public function listOrganizations(string $q, string $verified, int $page, int $perPage): array
+    {
+        $where  = ['pt.is_organization = 1'];
+        $params = [];
+        if ($q !== '') {
+            $where[]      = '(p.display_name LIKE :q1 OR p.handle LIKE :q2)';
+            $like         = '%' . $q . '%';
+            $params['q1'] = $like;
+            $params['q2'] = $like;
+        }
+        if ($verified === 'verified') {
+            $where[] = 'p.verified_at IS NOT NULL';
+        } elseif ($verified === 'unverified') {
+            $where[] = 'p.verified_at IS NULL';
+        }
+        $whereSql = implode(' AND ', $where);
+
+        $count = $this->pdo->prepare(
+            'SELECT COUNT(*) FROM profiles p JOIN profile_types pt ON pt.id = p.profile_type_id
+             WHERE ' . $whereSql
+        );
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+
+        $offset = ($page - 1) * $perPage;
+        $list = $this->pdo->prepare(
+            'SELECT p.id, p.user_id, p.handle, p.display_name, p.verified_at, p.claim_status,
+                    pt.label AS type_label
+             FROM profiles p JOIN profile_types pt ON pt.id = p.profile_type_id
+             WHERE ' . $whereSql . '
+             ORDER BY p.verified_at IS NULL DESC, p.display_name ASC, p.id ASC
+             LIMIT :lim OFFSET :off'
+        );
+        foreach ($params as $k => $v) {
+            $list->bindValue(':' . $k, $v);
+        }
+        $list->bindValue(':lim', $perPage, PDO::PARAM_INT);
+        $list->bindValue(':off', $offset, PDO::PARAM_INT);
+        $list->execute();
+
+        return ['items' => $list->fetchAll(), 'total' => $total];
+    }
+
     /** Riga grezza per id (senza join), per i controlli del claim. */
     public function findRawById(int $id): ?array
     {

@@ -35,10 +35,15 @@ final class AdminUserService
         $this->notifications = $notifications ?? new NotificationRepository();
     }
 
-    /** Verifica/annulla la verifica del profilo dell'utente. Scrive verified_at + audit + notifica. */
+    /**
+     * Verifica/annulla la verifica del profilo PERSONALE dell'utente. Deterministico: usa
+     * `findPersonalByUserId` (is_organization = 0, id ASC) — mai `findByUserId`, che per un utente
+     * multi-profilo (personale + N pagine) colpirebbe una riga arbitraria. Le PAGINE-org si verificano
+     * SOLO dal percorso dedicato by profile_id (`setOrgVerified`): nessuna verifica accidentale a catena.
+     */
     public function toggleProfileVerified(int $adminId, int $targetUserId, string $ip): ServiceResult
     {
-        $profile = $this->profiles->findByUserId($targetUserId);
+        $profile = $this->profiles->findPersonalByUserId($targetUserId);
         if ($profile === null) {
             return ServiceResult::fail(I18n::t('admin.users.err_no_profile'), 422);
         }
@@ -57,6 +62,52 @@ final class AdminUserService
             );
         }
         return ServiceResult::ok(null, ['message' => I18n::t($verify ? 'admin.users.done_verified_profile' : 'admin.users.done_unverified_profile')]);
+    }
+
+    /**
+     * Verifica (o annulla la verifica di) una PAGINA-organizzazione DIRETTAMENTE per profile_id. È
+     * l'ancora del badge derivato "verificato dalla società" (M3): `verifyingOrgsOf` accende il badge
+     * dei membri solo se l'org-ancora ha `verified_at` non nullo. Disaccoppiato da user_id: il target è
+     * risolto server-side per id (IDOR-safe) e DEVE essere `is_organization = 1` (guardia a livello dati,
+     * defense-in-depth oltre allo stack auth→admin→step-up→CSRF della rotta). Idempotente: impostare lo
+     * stato già presente non riscrive né ri-audita né ri-notifica. Notifica il proprietario solo se la
+     * pagina è rivendicata (user_id non nullo); una pagina unclaimed non ha destinatario.
+     */
+    public function setOrgVerified(int $adminId, int $profileId, bool $verify, string $ip): ServiceResult
+    {
+        $row = $this->profiles->findAdminRowById($profileId);
+        if ($row === null) {
+            return ServiceResult::fail(I18n::t('admin.profiles.err_notfound'), 404);
+        }
+        if ((int) $row['is_organization'] !== 1) {
+            // Il percorso by profile_id è SOLO per le pagine-org: un profilo persona va verificato
+            // dalla scheda utente (findPersonalByUserId). Rifiuto esplicito, nessun effetto.
+            return ServiceResult::fail(I18n::t('admin.profiles.err_not_org'), 422);
+        }
+
+        $alreadyVerified = $row['verified_at'] !== null;
+        if ($alreadyVerified === $verify) {
+            // Nessun cambiamento reale: evita audit/notifiche duplicate su doppio submit.
+            return ServiceResult::ok(null, ['message' => I18n::t($verify ? 'admin.profiles.done_verified' : 'admin.profiles.done_unverified')]);
+        }
+
+        $this->profiles->setVerified((int) $row['id'], $verify);
+        $this->audit->record($adminId, $verify ? 'profile.verify' : 'profile.unverify', 'profile', (int) $row['id'], [
+            'handle' => $row['handle'],
+            'kind'   => 'organization',
+        ], $ip);
+
+        $ownerId = $row['user_id'] !== null ? (int) $row['user_id'] : 0;
+        if ($verify && $ownerId > 0) {
+            $this->notifications->create(
+                $ownerId,
+                'profile_verified',
+                I18n::t('notif.profile_verified.title'),
+                I18n::t('notif.profile_verified.body'),
+                'atleti/' . $row['handle']
+            );
+        }
+        return ServiceResult::ok(null, ['message' => I18n::t($verify ? 'admin.profiles.done_verified' : 'admin.profiles.done_unverified')]);
     }
 
     public function suspend(int $adminId, int $targetId, string $ip): ServiceResult

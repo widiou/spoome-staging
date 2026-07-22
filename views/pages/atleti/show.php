@@ -28,6 +28,14 @@ $affSplit = static function (array $rows): array {
 };
 // Copy del badge verificato per tipo: "Verificata" (entità ufficiale) vs "Verificato" (persona).
 $verifiedLabel = $isOrg ? t('atleti.verified_org') : t('atleti.verified');
+// M3 badge "verificato dalla società": DERIVATO (affiliazione confermata verso org verificata). Il service
+// lo passa già escludendo lo staff badge (precedenza). Provenance nel tooltip (nome dell'org-ancora primaria),
+// escapato all'output. Stato = icona + testo (mai solo colore, niente verde) → a11y.
+$clubVerified  = $clubVerified ?? false;
+$clubVerifiers = $clubVerifiers ?? [];
+$clubVerifiedLabel = $isOrg ? t('atleti.verified_club_org') : t('atleti.verified_club');
+$clubVerifierName  = (string) ($clubVerifiers[0]['org_name'] ?? '');
+$clubVerifiedTitle = $clubVerifierName !== '' ? t('atleti.verified_club_by', ['org' => $clubVerifierName]) : $clubVerifiedLabel;
 
 // Dati strutturati per la SEO (Person o Organization sportiva).
 $ld = [
@@ -80,6 +88,8 @@ if ($location !== '') {
                     <?= e($name) ?>
                     <?php if ($verified): ?>
                         <span class="profile-verified" title="<?= e($verifiedLabel) ?>"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> <?= e($verifiedLabel) ?></span>
+                    <?php elseif ($clubVerified): ?>
+                        <span class="profile-verified profile-verified-club" title="<?= e($clubVerifiedTitle) ?>"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> <?= e($clubVerifiedLabel) ?></span>
                     <?php endif; ?>
                 </h1>
                 <p class="profile-type"><?= e($p['type_label']) ?></p>

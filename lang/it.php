@@ -53,6 +53,10 @@ return [
     'atleti.pagination.status'=> 'Pagina {page} di {pages}',
     'atleti.verified'         => 'Verificato',
     'atleti.verified_org'     => 'Verificata',
+    // Badge "verificato dalla società" (M3): derivato da un'affiliazione confermata verso un'org verificata.
+    'atleti.verified_club'     => 'Verificato dalla società',
+    'atleti.verified_club_org' => 'Verificata dalla società/organizzazione',
+    'atleti.verified_club_by'  => 'Affiliazione confermata da {org}',
 
     // Pagina profilo (/atleti/{handle})
     'atleti.show.about'             => 'Chi è',
@@ -480,6 +484,7 @@ return [
     'admin.back_to_site'          => 'Torna al sito',
     'admin.nav.dashboard'         => 'Dashboard',
     'admin.nav.users'             => 'Utenti',
+    'admin.nav.profiles'          => 'Verifica pagine',
     'admin.nav.stats'             => 'Statistiche',
     'admin.nav.moderation'        => 'Contenuti',
     'admin.nav.news'              => 'Fonti news',
@@ -667,6 +672,29 @@ return [
     'admin.users.done_verified_profile'   => 'Profilo verificato.',
     'admin.users.done_unverified_profile' => 'Verifica del profilo annullata.',
     'admin.users.err_no_profile'      => 'Questo utente non ha un profilo da verificare.',
+
+    // ---- Admin — verifica PAGINE-organizzazione (ancora del badge "verificato dalla società", M3) ----
+    'admin.profiles.count'            => '{n} pagine',
+    'admin.profiles.hint'             => 'Verifica una pagina-organizzazione contro evidenza reale (affiliazione/tesseramento ufficiale). Le sue affiliazioni confermate accendono il badge "verificato dalla società" sui membri.',
+    'admin.profiles.search_ph'        => 'Cerca per nome o handle…',
+    'admin.profiles.all'              => 'Tutte',
+    'admin.profiles.only_verified'    => 'Solo verificate',
+    'admin.profiles.only_unverified'  => 'Solo non verificate',
+    'admin.profiles.filter'           => 'Filtra',
+    'admin.profiles.none'             => 'Nessuna pagina-organizzazione trovata.',
+    'admin.profiles.col_name'         => 'Pagina',
+    'admin.profiles.col_type'         => 'Tipo',
+    'admin.profiles.col_status'       => 'Verifica',
+    'admin.profiles.unclaimed'        => 'Non rivendicata',
+    'admin.profiles.verified'         => 'Verificata',
+    'admin.profiles.not_verified'     => 'Non verificata',
+    'admin.profiles.verify'           => 'Verifica',
+    'admin.profiles.unverify'         => 'Rimuovi verifica',
+    'admin.profiles.confirm_unverify' => 'Rimuovere la verifica di questa pagina? Spegnerà il badge derivato sui membri affiliati.',
+    'admin.profiles.done_verified'    => 'Pagina verificata.',
+    'admin.profiles.done_unverified'  => 'Verifica della pagina rimossa.',
+    'admin.profiles.err_notfound'     => 'Profilo non trovato.',
+    'admin.profiles.err_not_org'      => 'Questo profilo non è una pagina-organizzazione: verifica un profilo persona dalla scheda utente.',
 
     // ---- Rivendicazione (lato utente) ----
     'claim.panel.title'           => 'Questo profilo sei tu?',

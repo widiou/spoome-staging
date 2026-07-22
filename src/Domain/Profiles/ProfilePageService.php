@@ -115,6 +115,8 @@ final class ProfilePageService
             'militanza'    => $c['militanza'],
             'affPending'   => $c['affPending'],
             'canManageAff' => $c['canManageAff'],
+            'clubVerified'  => $c['clubVerification']['club'],
+            'clubVerifiers' => $c['clubVerification']['orgs'],
             'canManage'    => $c['canManage'],
             'profilePosts' => $c['profilePosts'],
             'myHandle'     => $c['myHandle'],
@@ -253,6 +255,20 @@ final class ProfilePageService
         $canManageAff = $myRank >= 2; // admin+ (riusa il ruolo già risolto, niente seconda canActAs)
         $affPending   = $canManageAff ? $this->affiliations->pendingFor($pid) : [];
 
+        // M3 Verification-da-club: badge "verificato dalla società" DERIVATO — la sorgente di verità è
+        // l'affiliazione confermata verso un'org essa stessa verificata (verifyingOrgsOf). Nessun flag
+        // denormalizzato: la revoca è automatica e atomica al ritiro dell'affiliazione o alla de-verifica
+        // dell'org (nessuna race di revoca). Precedenza allo staff badge (`verified_at`): se già verificato
+        // dallo staff non duplichiamo il badge; le org-ancora restano comunque esposte in API (provenance).
+        // Query unica indicizzata (idx_aff_member) e ristretta a QUESTO profilo — mai in un nav-helper.
+        $staffVerified = !empty($profile['verified_at']);
+        $verifyingOrgs = $this->affiliations->verifyingOrgsOf($pid);
+        $clubVerification = [
+            'staff' => $staffVerified,
+            'club'  => !$staffVerified && $verifyingOrgs !== [],
+            'orgs'  => $verifyingOrgs,
+        ];
+
         // Sezione "Post" (stile Instagram): i contenuti del profilo, idratati come nel feed. Solo per
         // visitatori autenticati — i form like/commento richiedono sessione+CSRF (variante read-only anonima = follow-up).
         $profilePosts = ($viewerUserId !== null && $viewerPid !== null)
@@ -300,6 +316,7 @@ final class ProfilePageService
             'militanza'    => $militanza,
             'affPending'   => $affPending,
             'canManageAff' => $canManageAff,
+            'clubVerification' => $clubVerification,
             // Post + insight proprietari
             'profilePosts' => $profilePosts,
             'insights'     => $insights,
