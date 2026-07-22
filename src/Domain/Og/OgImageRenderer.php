@@ -167,9 +167,6 @@ final class OgImageRenderer
         try {
             $sw = imagesx($src);
             $sh = imagesy($src);
-            if ($sw < 1 || $sh < 1) {
-                return;
-            }
             // Cover-fit (center-crop) su tutta la tela.
             $target = self::W / self::H;
             $aspect = $sw / $sh;
