@@ -481,6 +481,7 @@ return [
     'admin.nav.dashboard'         => 'Dashboard',
     'admin.nav.users'             => 'Utenti',
     'admin.nav.stats'             => 'Statistiche',
+    'admin.nav.analytics'         => 'Analytics d\'uso',
     'admin.nav.moderation'        => 'Contenuti',
     'admin.nav.news'              => 'Fonti news',
     'admin.nav.logs'              => 'Log & salute',
@@ -530,6 +531,22 @@ return [
     'admin.funnel.with_profile'   => 'Profilo creato',
     'admin.funnel.posted'         => 'Ha pubblicato',
     'admin.funnel.connected'      => 'Ha una connessione',
+
+    // Analytics d'uso (M4)
+    'admin.analytics.subtitle'    => 'Eventi d\'uso instrumentati (sincroni, on-demand) negli ultimi {n} giorni.',
+    'admin.analytics.trend'       => 'Andamento eventi al giorno',
+    'admin.analytics.counts'      => 'Eventi per tipo',
+    'admin.analytics.event'       => 'Evento',
+    'admin.analytics.total'       => 'Totale',
+    'admin.analytics.conversion'  => 'Conversione ricerca → apertura profilo',
+    'admin.analytics.conv_hint'   => 'Attori distinti che hanno cercato e, di questi, quanti hanno aperto un profilo.',
+    'admin.analytics.searchers'   => 'Hanno cercato',
+    'admin.analytics.openers'     => 'Hanno aperto un profilo',
+    'admin.analytics.empty'       => 'Ancora nessun evento in questa finestra.',
+    'admin.analytics.ev.search'       => 'Ricerca',
+    'admin.analytics.ev.profile_open' => 'Apertura profilo',
+    'admin.analytics.ev.opportunity_publish' => 'Opportunità pubblicata',
+    'admin.analytics.ev.apply'        => 'Candidatura',
 
     // Log & salute
     'admin.logs.subtitle'         => '{n} problemi distinti (raggruppati per firma).',
