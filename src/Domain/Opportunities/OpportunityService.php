@@ -53,7 +53,7 @@ final class OpportunityService
 
     /**
      * Pubblica un'opportunità a nome dell'org $actingPid. $userId = utente reale che agisce (audit).
-     * @param array<string,mixed> $input campi grezzi (title/kind/sport_id|sport_slug/location_*/description/event_date/deadline)
+     * @param array<string,mixed> $input campi grezzi (title, kind, sport_id|sport_slug, location, description, event_date, deadline)
      */
     public function publish(int $actingPid, ?int $userId, array $input, string $ip = 'unknown'): ServiceResult
     {
