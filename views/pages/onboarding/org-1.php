@@ -8,6 +8,13 @@
  */
 $csrf = Spoome\Core\Csrf::token();
 $logoPath = (string) ($profile['avatar_path'] ?? '');
+// Fix P1 (review di Paolo): ProfileService::update() RISCRIVE SEMPRE profiles.attributes dal solo
+// input attr[...] inviato. Le org hanno campi type-specific (es. anno fondazione) — senza rispedirli
+// come campi nascosti, questo step (che espone solo sport/città) li azzererebbe silenziosamente al
+// primo salvataggio. Stesso pattern di views/pages/profilo/edit.php:261, ma sui valori grezzi (non
+// serve lo schema qui: sanitize() in ProfileService ignora comunque ogni chiave non più nello schema
+// del tipo — solo view, zero impatto sul write path condiviso).
+$attrValues = \Spoome\Domain\Profiles\ProfileAttributes::values($profile['attributes'] ?? null);
 $accept = 'image/jpeg,image/png,image/webp';
 $logoI18n = json_encode([
     'title' => t('avatar.crop.title'), 'hint' => t('avatar.crop.hint'),
@@ -61,6 +68,11 @@ $logoI18n = json_encode([
             <input type="hidden" name="location_region" value="<?= e((string) ($profile['location_region'] ?? '')) ?>">
             <input type="hidden" name="location_country" value="<?= e((string) ($profile['location_country'] ?? '')) ?>">
             <input type="hidden" name="visibility" value="<?= e((string) ($profile['visibility'] ?? 'public')) ?>">
+            <?php foreach ($attrValues as $attrKey => $attrVal): ?>
+                <?php if (is_scalar($attrVal)): ?>
+                    <input type="hidden" name="attr[<?= e((string) $attrKey) ?>]" value="<?= e((string) $attrVal) ?>">
+                <?php endif; ?>
+            <?php endforeach; ?>
 
             <div class="field">
                 <label for="sport"><?= e(t('profile.field.sport')) ?></label>

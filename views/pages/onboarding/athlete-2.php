@@ -9,6 +9,13 @@
  */
 $csrf = Spoome\Core\Csrf::token();
 $avatarPath = (string) ($profile['avatar_path'] ?? '');
+// Fix P1 (review di Paolo): ProfileService::update() RISCRIVE SEMPRE profiles.attributes dal solo
+// input attr[...] inviato. Questo step espone solo la città → senza rispedire gli attributi CORRENTI
+// come campi nascosti, il salvataggio li azzererebbe silenziosamente. Stesso pattern di
+// views/pages/profilo/edit.php:261, ma sui valori grezzi (non serve lo schema qui: sanitize() in
+// ProfileService ignora comunque ogni chiave non più nello schema del tipo — solo view, zero impatto
+// sul write path condiviso).
+$attrValues = \Spoome\Domain\Profiles\ProfileAttributes::values($profile['attributes'] ?? null);
 $accept = 'image/jpeg,image/png,image/webp';
 $avatarI18n = json_encode([
     'title' => t('avatar.crop.title'), 'hint' => t('avatar.crop.hint'),
@@ -73,6 +80,11 @@ $avatarI18n = json_encode([
                 <input type="hidden" name="location_region" value="<?= e((string) ($profile['location_region'] ?? '')) ?>">
                 <input type="hidden" name="location_country" value="<?= e((string) ($profile['location_country'] ?? '')) ?>">
                 <input type="hidden" name="visibility" value="<?= e((string) ($profile['visibility'] ?? 'public')) ?>">
+                <?php foreach ($attrValues as $attrKey => $attrVal): ?>
+                    <?php if (is_scalar($attrVal)): ?>
+                        <input type="hidden" name="attr[<?= e((string) $attrKey) ?>]" value="<?= e((string) $attrVal) ?>">
+                    <?php endif; ?>
+                <?php endforeach; ?>
 
                 <div class="field">
                     <label for="location_city"><?= e(t('profile.field.city')) ?> <span class="req">*</span></label>
