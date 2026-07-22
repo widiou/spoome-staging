@@ -41,7 +41,9 @@ Logger::init([
 ]);
 
 // Sessione solo per il web (l'API è stateless: usa il token Bearer, niente cookie di sessione).
-if (!$request->isApi()) {
+// L'endpoint og:image (/og/…) è servito ai crawler senza cookie: nessuna sessione, così l'immagine
+// cachabile non porta mai un Set-Cookie e non crea sessioni vuote ad ogni hit.
+if (!$request->isApi() && !\str_starts_with($request->path, '/og/')) {
     Session::start();
 }
 

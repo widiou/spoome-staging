@@ -30,6 +30,7 @@ use Spoome\Http\Controllers\Web\RecommendationController as WebReco;
 use Spoome\Http\Controllers\Web\ClaimController as WebClaim;
 use Spoome\Http\Controllers\Web\OpportunityController as WebOpportunity;
 use Spoome\Http\Controllers\Web\SeoController as WebSeo;
+use Spoome\Http\Controllers\Web\OgImageController as WebOgImage;
 use Spoome\Http\Controllers\Web\Admin\DashboardController as AdminDashboard;
 use Spoome\Http\Controllers\Web\Admin\AuthController as AdminAuth;
 use Spoome\Http\Controllers\Web\Admin\UsersController as AdminUsers;
@@ -178,6 +179,10 @@ $router->get('/atleti/{handle}', [WebProfile::class, 'show']);
 $router->get('/societa/{handle}', [WebProfile::class, 'show']);
 $router->get('/associazione/{handle}', [WebProfile::class, 'show']);
 $router->get('/federazione/{handle}', [WebProfile::class, 'show']);
+
+// og:image dei profili (M5): card social 1200×630 composta on-the-fly con GD, cache su disco, fail-safe.
+// Pubblica, sessionless (i crawler non hanno cookie), read-only. Suffisso `.png` → cache "asset" via .htaccess.
+$router->get('/og/atleti/{handle}.png', [WebOgImage::class, 'show']);
 
 // Follow: liste (pubbliche) + azioni segui/non-segui (autenticate, CSRF)
 $router->get('/atleti/{handle}/follower', [WebProfile::class, 'followers']);
