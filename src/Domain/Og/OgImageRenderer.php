@@ -295,9 +295,12 @@ final class OgImageRenderer
     {
         $col = $this->color($img, $rgb);
         imagesetthickness($img, max(3, (int) ($r / 4)));
-        $x1 = $cx - (int) ($r * 0.45); $y1 = $cy + (int) ($r * 0.02);
-        $x2 = $cx - (int) ($r * 0.10); $y2 = $cy + (int) ($r * 0.40);
-        $x3 = $cx + (int) ($r * 0.50); $y3 = $cy - (int) ($r * 0.42);
+        $x1 = $cx - (int) ($r * 0.45);
+        $y1 = $cy + (int) ($r * 0.02);
+        $x2 = $cx - (int) ($r * 0.10);
+        $y2 = $cy + (int) ($r * 0.40);
+        $x3 = $cx + (int) ($r * 0.50);
+        $y3 = $cy - (int) ($r * 0.42);
         imageline($img, $x1, $y1, $x2, $y2, $col);
         imageline($img, $x2, $y2, $x3, $y3, $col);
         imagesetthickness($img, 1);
