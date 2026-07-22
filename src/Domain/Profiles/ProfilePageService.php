@@ -91,7 +91,17 @@ final class ProfilePageService
             $profile['sport_name'] ?? null,
             $c['location'],
         ]);
-        $ogImageRel = $profile['cover_path'] ?? ($profile['avatar_path'] ?? null);
+
+        // M5 · og:image: card social COMPOSTA (nome, tipo, sport, badge di verifica), non l'avatar grezzo.
+        // URL versionato dalla FIRMA dello stato mostrato → invalidazione content-addressed e race-free:
+        // se cambiano i dati, cambia la firma → cambia l'URL (i crawler rifanno il fetch) e la chiave di
+        // cache. La firma riusa lo stato già calcolato in collect() (clubVerification) → nessuna query extra
+        // nel percorso SEO caldo. La generazione vera avviene nell'endpoint /og/atleti/{handle}.png.
+        // Club-verified nella firma SOLO per atleti (non org): identico al calcolo dell'endpoint
+        // (OgImageService) → firme identiche ai due lati (l'org non mostra mai il badge "da società").
+        $ogClub  = empty($profile['is_organization']) && (bool) $c['clubVerification']['club'];
+        $ogSig   = \Spoome\Domain\Og\OgCardData::signature($profile, $ogClub);
+        $ogImage = Config::absoluteUrl('og/atleti/' . \rawurlencode((string) $profile['handle']) . '.png') . '?v=' . $ogSig;
 
         return [
             'title'        => $name . ' · ' . Config::appName(),
@@ -102,7 +112,7 @@ final class ProfilePageService
             'location'     => $c['location'],
             'canonical'    => Config::absoluteUrl($c['canonicalPath']),
             'ogType'       => 'profile',
-            'ogImage'      => $ogImageRel ? Config::absoluteUrl((string) $ogImageRel) : null,
+            'ogImage'      => $ogImage,
             'experiences'  => $c['experiences'],
             'achievements' => $c['achievements'],
             'links'        => $c['links'],
