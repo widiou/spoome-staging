@@ -48,18 +48,20 @@ final class OgImageRenderer
     }
 
     /**
-     * Genera i byte PNG della card per il modello di {@see OgCardData::fromProfile}. Non solleva mai.
+     * Genera i byte PNG della card per il modello di {@see OgCardData::fromProfile}.
+     *
+     * NB: la degradazione senza font TTF/FreeType NON è un errore — `canvas()` produce comunque una card
+     * valida (font bitmap). Un'eccezione qui significa un errore GD "duro" (memoria/estensione): la lascia
+     * RISALIRE di proposito, così {@see OgImageService} la distingue da una card valida e serve il brand
+     * come RIPIEGO (con `no-store`), senza cacharlo sull'URL versionato.
      *
      * @param array<string,mixed> $card
+     * @throws \Throwable su errore GD irrecuperabile
      */
     public function render(array $card): string
     {
-        try {
-            $img = $this->canvas($card);
-            return $this->toPng($img);
-        } catch (\Throwable $e) {
-            return $this->brandCard();
-        }
+        $img = $this->canvas($card);
+        return $this->toPng($img);
     }
 
     /** Card di brand (fallback globale): dark + monogramma giallo + wordmark. Usata quando manca il profilo. */
@@ -291,6 +293,7 @@ final class OgImageRenderer
         $this->text($img, $label, $cx + $iconR + $gap, $ty, $size, self::C_TEXT, $this->fontSemi);
     }
 
+    /** @param array{0:int,1:int,2:int} $rgb */
     private function checkMark(\GdImage $img, int $cx, int $cy, int $r, array $rgb): void
     {
         $col = $this->color($img, $rgb);
@@ -317,7 +320,10 @@ final class OgImageRenderer
         return $ok;
     }
 
-    /** Disegna testo con baseline a $y. Usa TTF se disponibile, altrimenti il font bitmap ingrandito. */
+    /**
+     * Disegna testo con baseline a $y. Usa TTF se disponibile, altrimenti il font bitmap ingrandito.
+     * @param array{0:int,1:int,2:int} $rgb
+     */
     private function text(\GdImage $img, string $s, int $x, int $y, int $size, array $rgb, string $font): void
     {
         if ($s === '') {
@@ -345,7 +351,10 @@ final class OgImageRenderer
         return (int) (imagefontwidth(5) * $scale * mb_strlen($s));
     }
 
-    /** Fallback senza FreeType: font 5 di GD scritto su buffer e ingrandito (blocky ma leggibile). */
+    /**
+     * Fallback senza FreeType: font 5 di GD scritto su buffer e ingrandito (blocky ma leggibile).
+     * @param array{0:int,1:int,2:int} $rgb
+     */
     private function bitmapText(\GdImage $img, string $s, int $x, int $top, int $size, array $rgb): void
     {
         $s = $this->ascii($s);
@@ -353,15 +362,16 @@ final class OgImageRenderer
         $fh = imagefontheight(5);
         $len = max(1, strlen($s));
         $buf = $this->newImage($fw * $len, $fh);
-        $bg = imagecolorallocate($buf, self::C_BG[0], self::C_BG[1], self::C_BG[2]);
+        $bg = $this->color($buf, self::C_BG);
         imagefilledrectangle($buf, 0, 0, imagesx($buf), imagesy($buf), $bg);
         imagecolortransparent($buf, $bg);
-        imagestring($buf, 5, 0, 0, $s, imagecolorallocate($buf, $rgb[0], $rgb[1], $rgb[2]));
+        imagestring($buf, 5, 0, 0, $s, $this->color($buf, $rgb));
         $scale = max(1, (int) round($size / $fh));
         imagecopyresized($img, $buf, $x, $top, 0, 0, $fw * $len * $scale, $fh * $scale, $fw * $len, $fh);
         imagedestroy($buf);
     }
 
+    /** @param array{0:int,1:int,2:int} $rgb */
     private function centerText(\GdImage $img, string $s, int $x, int $y, int $w, int $h, int $size, array $rgb, string $font): void
     {
         $tw = $this->textW($s, $size, $font);
@@ -436,6 +446,7 @@ final class OgImageRenderer
         return ($dx * $dx + $dy * $dy) > $r * $r;
     }
 
+    /** @param array{0:int,1:int,2:int} $rgb */
     private function roundedRect(\GdImage $img, int $x, int $y, int $w, int $h, int $r, array $rgb): void
     {
         $col = $this->color($img, $rgb);
@@ -448,6 +459,7 @@ final class OgImageRenderer
         imagefilledellipse($img, $x + $w - $r, $y + $h - $r, $r * 2, $r * 2, $col);
     }
 
+    /** @param array{0:int,1:int,2:int} $rgb */
     private function roundedRectBorder(\GdImage $img, int $x, int $y, int $w, int $h, int $r, array $rgb): void
     {
         $col = $this->color($img, $rgb);

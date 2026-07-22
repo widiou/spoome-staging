@@ -36,15 +36,25 @@ final class OgImageService
     }
 
     /**
-     * Byte PNG della card per un handle pubblico. Handle inesistente/non pubblico → card di brand (200,
-     * anteprima non rotta), senza rivelare nulla del profilo. Non solleva mai.
+     * Byte PNG della card per un handle pubblico + flag `fallback`. Non solleva mai.
+     *
+     *  - card reale (ricca o degradata): `fallback=false` → il controller la può cachare a lungo (l'URL è
+     *    content-addressed via `?v=firma`).
+     *  - card di brand (handle inesistente/non pubblico, o errore di rendering): `fallback=true` → il
+     *    controller emette `no-store`, così un ripiego NON resta cachato 1 anno sull'URL versionato
+     *    (anti cache-poisoning, P2 review).
+     *
+     * DoS: la card di brand è deterministica → è renderizzata UNA sola volta e servita dal disco su ogni
+     * hit ({@see brandBytes}); l'endpoint pubblico sessionless non rigenera GD ad ogni richiesta.
+     *
+     * @return array{bytes:string, fallback:bool}
      */
-    public function imageFor(string $handle): string
+    public function imageFor(string $handle): array
     {
         try {
             $profile = $handle !== '' ? $this->profiles->findPublicByHandle($handle) : null;
             if ($profile === null) {
-                return $this->renderer->brandCard();
+                return ['bytes' => $this->brandBytes(), 'fallback' => true];
             }
 
             $pid = (int) $profile['id'];
@@ -61,18 +71,40 @@ final class OgImageService
 
             $cached = @file_get_contents($cacheFile);
             if ($cached !== false && $cached !== '') {
-                return $cached;
+                return ['bytes' => $cached, 'fallback' => false];
             }
 
+            // render() solleva su errore GD "duro" (non sulla degradazione senza font, che è una card valida):
+            // così la card degradata viene cachata come reale, mentre un errore vero cade sul brand (no-store).
             $card  = OgCardData::fromProfile($profile, $clubVerified);
             $bytes = $this->renderer->render($card);
             if ($bytes !== '') {
-                $this->store($cacheFile, $bytes, $pid);
+                $this->store($cacheFile, $bytes, $this->cacheDir() . '/' . $pid . '-*.png');
+                return ['bytes' => $bytes, 'fallback' => false];
             }
-            return $bytes !== '' ? $bytes : $this->renderer->brandCard();
+            return ['bytes' => $this->brandBytes(), 'fallback' => true];
         } catch (\Throwable $e) {
-            return $this->renderer->brandCard();
+            return ['bytes' => $this->brandBytes(), 'fallback' => true];
         }
+    }
+
+    /**
+     * Byte della card di brand, renderizzata UNA sola volta e cachata su disco (`_brand-r{RENDER_VERSION}.png`).
+     * Elimina il vettore di amplificazione DoS: nessun render GD full-canvas per gli hit su handle
+     * inesistenti/privati o in caso di errore. Best-effort: se la scrittura fallisce, ritorna comunque i byte.
+     */
+    private function brandBytes(): string
+    {
+        $file = $this->cacheDir() . '/_brand-r' . OgCardData::RENDER_VERSION . '.png';
+        $cached = @file_get_contents($file);
+        if ($cached !== false && $cached !== '') {
+            return $cached;
+        }
+        $bytes = $this->renderer->brandCard();
+        if ($bytes !== '') {
+            $this->store($file, $bytes, null);
+        }
+        return $bytes !== '' ? $bytes : OgImageRenderer::floor();
     }
 
     /** Rete di sicurezza statica per il controller (PNG sempre valido). */
@@ -81,8 +113,11 @@ final class OgImageService
         return OgImageRenderer::floor();
     }
 
-    /** Scrittura atomica (tmp + rename) + pulizia pigra delle versioni vecchie dello stesso profilo. Best-effort. */
-    private function store(string $cacheFile, string $bytes, int $pid): void
+    /**
+     * Scrittura atomica (tmp + rename). Se `$cleanupGlob` è dato, ripulisce pigramente le versioni vecchie
+     * che matchano (le card obsolete dello stesso profilo). Best-effort: una cache mancata non rompe mai la risposta.
+     */
+    private function store(string $cacheFile, string $bytes, ?string $cleanupGlob): void
     {
         try {
             $dir = dirname($cacheFile);
@@ -98,9 +133,11 @@ final class OgImageService
                 @unlink($tmp);
                 return;
             }
-            foreach (glob($this->cacheDir() . '/' . $pid . '-*.png') ?: [] as $old) {
-                if ($old !== $cacheFile) {
-                    @unlink($old);
+            if ($cleanupGlob !== null) {
+                foreach (glob($cleanupGlob) ?: [] as $old) {
+                    if ($old !== $cacheFile) {
+                        @unlink($old);
+                    }
                 }
             }
         } catch (\Throwable $e) {

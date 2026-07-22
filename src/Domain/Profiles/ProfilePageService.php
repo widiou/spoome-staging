@@ -93,7 +93,10 @@ final class ProfilePageService
         // se cambiano i dati, cambia la firma → cambia l'URL (i crawler rifanno il fetch) e la chiave di
         // cache. La firma riusa lo stato già calcolato in collect() (clubVerification) → nessuna query extra
         // nel percorso SEO caldo. La generazione vera avviene nell'endpoint /og/atleti/{handle}.png.
-        $ogSig   = \Spoome\Domain\Og\OgCardData::signature($profile, (bool) $c['clubVerification']['club']);
+        // Club-verified nella firma SOLO per atleti (non org): identico al calcolo dell'endpoint
+        // (OgImageService) → firme identiche ai due lati (l'org non mostra mai il badge "da società").
+        $ogClub  = empty($profile['is_organization']) && (bool) $c['clubVerification']['club'];
+        $ogSig   = \Spoome\Domain\Og\OgCardData::signature($profile, $ogClub);
         $ogImage = Config::absoluteUrl('og/atleti/' . \rawurlencode((string) $profile['handle']) . '.png') . '?v=' . $ogSig;
 
         return [
