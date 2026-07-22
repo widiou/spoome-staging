@@ -35,9 +35,14 @@ final class ConversationService
 
     /**
      * Thread con un profilo (crea la conversazione se serve), marca letti i messaggi ricevuti.
-     * @return ServiceResult ok con {conversation_id, messages[]} o fail 403 se non connessi.
+     *
+     * Paginazione seek/keyset: passa $before = id del messaggio più vecchio già visto per caricare quelli
+     * ancora più vecchi (scroll all'indietro), senza OFFSET (costo O(pagina), non O(offset)). Senza cursore
+     * la prima pagina resta identica a prima. Il vecchio parametro $page (paginazione a numero, offset) è
+     * mantenuto solo per retro-compatibilità dei client API legacy (?pagina=N) quando NON si passa $before.
+     * @return ServiceResult ok con {conversation_id, messages[], has_more, next_cursor} o fail 403 se non connessi.
      */
-    public function thread(int $actorId, int $targetId, int $page = 1, int $perPage = self::PER_PAGE): ServiceResult
+    public function thread(int $actorId, int $targetId, int $page = 1, int $perPage = self::PER_PAGE, ?int $before = null): ServiceResult
     {
         if ($targetId === $actorId) {
             return ServiceResult::fail(I18n::t('dm.error.self'), 422);
@@ -46,15 +51,33 @@ final class ConversationService
             return ServiceResult::fail(I18n::t('dm.error.not_connected'), 403);
         }
         $convId = $this->conversations->findOrCreate($actorId, $targetId);
-        $this->messages->markRead($convId, $actorId);
+        // markRead solo sulla prima pagina (before === null): lo scroll all'indietro carica storia già
+        // letta → ri-eseguirlo sarebbe un UPDATE inutile (0 righe utili dopo la prima volta).
+        if ($before === null) {
+            $this->messages->markRead($convId, $actorId);
+        }
 
         $perPage = max(1, min(100, $perPage));
-        $offset = max(0, $page - 1) * $perPage;
-        $rows = array_reverse($this->messages->thread($convId, $perPage, $offset));
+        // +1 riga sentinella per sapere se c'è una pagina più vecchia senza un COUNT.
+        if ($before !== null || $page <= 1) {
+            $rows = $this->messages->threadBefore($convId, $before, $perPage + 1);
+        } else {
+            // Fallback legacy: paginazione a numero di pagina via OFFSET (nessun cursore fornito, page > 1).
+            $offset = ($page - 1) * $perPage;
+            $rows = $this->messages->thread($convId, $perPage + 1, $offset);
+        }
+
+        $hasMore = count($rows) > $perPage;
+        $rows = array_slice($rows, 0, $perPage);
+        // Le righe sono id DESC (più recenti prima): il cursore per la pagina più vecchia è l'id minimo = ultimo.
+        $nextCursor = ($hasMore && $rows !== []) ? (int) $rows[count($rows) - 1]['id'] : null;
+        $rows = array_reverse($rows); // cronologico crescente per la vista
 
         return ServiceResult::ok([
             'conversation_id' => $convId,
             'messages'        => array_map(static fn ($m) => MessagePresenter::item($m, $actorId), $rows),
+            'has_more'        => $hasMore,
+            'next_cursor'     => $nextCursor,
         ]);
     }
 

@@ -40,7 +40,15 @@ final class MessagesController extends ApiController
             return;
         }
         $page = max(1, (int) $request->input('pagina', $request->input('page', 1)));
-        $result = (new ConversationService())->thread($me->id, $target->id, $page);
+        // Seek pagination: ?before=<id> carica i messaggi più vecchi di quell'id (scroll all'indietro).
+        $before = (int) $request->input('before', 0);
+        $result = (new ConversationService())->thread(
+            $me->id,
+            $target->id,
+            $page,
+            ConversationService::PER_PAGE,
+            $before > 0 ? $before : null
+        );
         if (!$result->ok) {
             $this->emitJson($result);
             return;
@@ -51,6 +59,9 @@ final class MessagesController extends ApiController
             'conversation_id' => $result->data['conversation_id'],
             'other'           => $other !== null ? ProfilePresenter::card($other) : null,
             'messages'        => $result->data['messages'],
+        ], 200, [
+            'has_more'    => $result->data['has_more'],
+            'next_cursor' => $result->data['next_cursor'],
         ]);
     }
 

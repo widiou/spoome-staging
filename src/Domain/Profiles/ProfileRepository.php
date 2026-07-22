@@ -421,7 +421,11 @@ final class ProfileRepository
             $where[] = 'p.sport_id = :sport';
             $params[':sport'] = $sportId;
         }
-        $orderBy = 'p.created_at DESC';
+        // Tie-break su p.id: created_at NON è unico → senza secondo criterio l'ordine tra righe con
+        // lo stesso timestamp è indeterminato e la paginazione (OFFSET o keyset) può duplicare/saltare
+        // profili al confine di pagina. L'indice idx_profiles_vis_created ha id (PK) implicitamente in coda
+        // → (visibility, created_at, id) è servito dall'indice senza filesort, e resta keyset-ready.
+        $orderBy = 'p.created_at DESC, p.id DESC';
         $scoreTerm = null;  // termine per lo score MATCH nell'ORDER BY (bind solo sulla SELECT, non sul COUNT)
         $searchJoin = '';   // JOIN sul set-candidato indicizzato della ricerca (vuoto se non si cerca)
         if ($search !== null && trim($search) !== '') {
@@ -462,7 +466,7 @@ final class ProfileRepository
                 // Ordina per rilevanza (score MATCH computato sul solo set candidato, non full scan) e poi
                 // per data. Placeholder DISTINTO da :q perché con EMULATE_PREPARES=false un named param
                 // non è riutilizzabile. Bind solo sulla SELECT (il COUNT non ha ORDER BY).
-                $orderBy = 'MATCH(p.display_name, p.headline, p.bio) AGAINST (:qscore IN BOOLEAN MODE) DESC, p.created_at DESC';
+                $orderBy = 'MATCH(p.display_name, p.headline, p.bio) AGAINST (:qscore IN BOOLEAN MODE) DESC, p.created_at DESC, p.id DESC';
                 $scoreTerm = $boolean;
             }
         }

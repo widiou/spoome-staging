@@ -51,6 +51,31 @@ final class MessageRepository
         return $stmt->fetchAll();
     }
 
+    /**
+     * Seek/keyset pagination del thread: i messaggi più vecchi del cursore $beforeId, più recenti prima.
+     * $beforeId === null → prima pagina (i più recenti). Ordine e shape identici a thread() con offset=0,
+     * quindi il service può rovesciarli allo stesso modo. Il cursore è l'id (PK monotona, univoca): niente
+     * OFFSET → costo O(pagina) invece di O(offset), servito da idx_msg_conv (conversation_id, id) come range
+     * scan all'indietro (nessun filesort, legge solo le righe restituite). `id` è unica → nessun tie-break su
+     * una seconda colonna, quindi un solo placeholder per il cursore (nessun rischio HY093 da riuso).
+     */
+    public function threadBefore(int $conversationId, ?int $beforeId, int $limit): array
+    {
+        $sql = 'SELECT id, sender_id, body, read_at, created_at FROM messages WHERE conversation_id = :c';
+        if ($beforeId !== null) {
+            $sql .= ' AND id < :before';
+        }
+        $sql .= ' ORDER BY id DESC LIMIT :lim';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->bindValue(':c', $conversationId, PDO::PARAM_INT);
+        if ($beforeId !== null) {
+            $stmt->bindValue(':before', $beforeId, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':lim', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
     /** Messaggi della conversazione con id > $afterId (polling), cronologici. */
     public function after(int $conversationId, int $afterId, int $limit = 50): array
     {
