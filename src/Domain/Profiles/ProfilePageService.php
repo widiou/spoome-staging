@@ -9,6 +9,7 @@ use Spoome\Domain\Connections\ConnectionRepository;
 use Spoome\Domain\Connections\ConnectionService;
 use Spoome\Domain\Feed\FeedService;
 use Spoome\Domain\Follows\FollowRepository;
+use Spoome\Domain\Opportunities\OpportunityRepository;
 
 /**
  * Costruttore del read-model della pagina pubblica del profilo (`/atleti/{handle}` e canonici per tipo).
@@ -37,6 +38,7 @@ final class ProfilePageService
     private ConnectionService $connections;
     private FeedService $feed;
     private RecommendationService $recos;
+    private OpportunityRepository $opportunities;
 
     public function __construct(
         ?ProfileDetailsRepository $details = null,
@@ -50,7 +52,8 @@ final class ProfilePageService
         ?ActingContext $acting = null,
         ?ConnectionService $connections = null,
         ?FeedService $feed = null,
-        ?RecommendationService $recos = null
+        ?RecommendationService $recos = null,
+        ?OpportunityRepository $opportunities = null
     ) {
         $this->details      = $details ?? new ProfileDetailsRepository();
         $this->follows      = $follows ?? new FollowRepository();
@@ -64,6 +67,7 @@ final class ProfilePageService
         $this->connections  = $connections ?? new ConnectionService($this->connRepo);
         $this->feed         = $feed ?? new FeedService();
         $this->recos        = $recos ?? new RecommendationService();
+        $this->opportunities = $opportunities ?? new OpportunityRepository();
     }
 
     /**
@@ -121,6 +125,7 @@ final class ProfilePageService
             'profilePosts' => $c['profilePosts'],
             'myHandle'     => $c['myHandle'],
             'insights'     => $c['insights'],
+            'onboardingBanner' => $c['onboardingBanner'],
         ];
     }
 
@@ -284,6 +289,21 @@ final class ProfilePageService
             ];
         }
 
+        // Onboarding (R-Moat M5, #45) · banner di RIPRESA non intrusivo (mai un modale) per chi ha
+        // abbandonato il flusso a metà. Calcolato SOLO per il proprietario (query extra rara, non su
+        // ogni vista pubblica). Atleta: manca la città (unico campo reso obbligatorio dallo step 2).
+        // Org: pagina verificata ma ancora zero opportunità pubblicate (non ha completato lo step 3).
+        $onboardingBanner = null;
+        if ($canManage) {
+            if (!empty($profile['is_organization'])) {
+                if ($staffVerified && $this->opportunities->listForOrg($pid, 1, 1)['total'] === 0) {
+                    $onboardingBanner = 'org_first_opportunity';
+                }
+            } elseif (trim((string) ($profile['location_city'] ?? '')) === '') {
+                $onboardingBanner = 'athlete_complete';
+            }
+        }
+
         return [
             // Identità/target + campi condivisi con la decorazione SEO
             'profile'      => $profile,
@@ -320,6 +340,7 @@ final class ProfilePageService
             // Post + insight proprietari
             'profilePosts' => $profilePosts,
             'insights'     => $insights,
+            'onboardingBanner' => $onboardingBanner,
         ];
     }
 

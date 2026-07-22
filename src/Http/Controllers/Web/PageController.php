@@ -58,7 +58,10 @@ final class PageController extends Controller
             return;
         }
         Session::flash(I18n::t('page.flash.created'), 'success');
-        Response::redirect('profilo');
+        // Onboarding (R-Moat M5, #45): ingresso automatico nel flusso Società/Federazione subito dopo
+        // la creazione della pagina. Solo il ramo web no-JS (i client nativi/AJAX restano sull'envelope
+        // JSON sopra, senza redirect concettuale) — coerente con "nessuna nuova voce di nav".
+        Response::redirect('onboarding/societa');
     }
 
     /** POST /agisci-come — cambia il profilo per cui l'utente agisce (personale o una pagina gestita). */

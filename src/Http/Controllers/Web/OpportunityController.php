@@ -88,6 +88,13 @@ final class OpportunityController extends Controller
             'sports' => (new SportRepository())->all(),
             'kinds'  => OpportunityService::KINDS,
             'notice' => Session::takeFlash(),
+            // Prefill (R-Moat M5, #45): lo step 3 dell'onboarding Società rimanda QUI con la disciplina/
+            // zona già impostate sulla pagina — "nessuna nuova view, solo prefill" (spec di Bianca). Solo
+            // valori di visualizzazione (selected/value): la validazione reale resta in OpportunityService,
+            // un query-param manomesso al più precompila male un campo, non aggira alcun controllo.
+            'prefillSportId' => (int) $request->input('sport_id', 0) ?: null,
+            'prefillRegion'  => trim((string) $request->input('region', '')),
+            'prefillCity'    => trim((string) $request->input('city', '')),
         ], 'base');
     }
 

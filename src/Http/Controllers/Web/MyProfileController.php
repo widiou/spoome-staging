@@ -118,10 +118,25 @@ final class MyProfileController extends Controller
         }
 
         Session::flash(I18n::t('profile.flash.saved'), 'success');
-        Response::redirect('profilo');
+        Response::redirect($this->nextAfterSave($request));
     }
 
     /* ------------------------------------------------------------ helpers ---- */
+
+    /**
+     * Onboarding (R-Moat M5, #45): gli step 2 (atleta) e 1 (società) inviano il form standard di
+     * `/profilo` con un campo nascosto `next`, per incatenare lo step successivo dopo il salvataggio —
+     * stesso pattern whitelist-relativo già usato da OpportunityController::back() e
+     * PageController::switchActing(). Assente/non valido → comportamento INVARIATO ('profilo').
+     */
+    private function nextAfterSave(Request $request): string
+    {
+        $next = trim((string) $request->input('next', ''));
+        if ($next !== '' && preg_match('#^[a-z0-9/_-]+$#i', $next)) {
+            return $next;
+        }
+        return 'profilo';
+    }
 
     private function renderForm(?array $profile, ?array $values, ?string $error, ?array $notice): void
     {

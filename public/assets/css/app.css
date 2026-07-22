@@ -1036,3 +1036,51 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
        niente overflow orizzontale a 375/320 (mai left:0, che spingeva il menu oltre il bordo). */
     .acting-menu { right: 0; left: auto; min-width: 200px; }
 }
+
+/* ============================ Opportunità (R-Moat M2/M5) =================== */
+/* Baseline mai scritta quando M2 è andata live (issue #45 la introduce, a beneficio anche di /opportunita
+   già in produzione): card, filtri, stati — dark-first, giallo unico accento, stato = icona+testo. */
+.opp-filters { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-end; margin-bottom: var(--sp-5); }
+.opp-filters .field { margin-bottom: 0; min-width: 160px; }
+.opp-filters .field-label { display: block; font-weight: 600; color: var(--c-heading); margin-bottom: var(--sp-2); font-size: .95rem; }
+.opp-list { display: flex; flex-direction: column; gap: var(--sp-4); }
+.opp-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); padding: var(--sp-4) var(--sp-5); }
+.opp-card-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: flex-start; justify-content: space-between; }
+.opp-card-title { font-family: var(--font-head); font-weight: 700; font-size: 1.2rem; color: var(--c-heading); }
+.opp-card-title:hover { color: var(--c-primary); }
+.opp-state { flex-shrink: 0; font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: var(--radius-pill); border: 1px solid var(--c-border-hi); color: var(--c-muted-text); white-space: nowrap; }
+.opp-state-open { color: var(--c-on-primary); background: var(--c-primary); border-color: var(--c-primary); }
+.opp-card-meta { list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); margin: var(--sp-2) 0 0; padding: 0; font-size: .88rem; }
+.opp-card-meta li { display: inline-flex; align-items: center; gap: 6px; }
+.opp-card-meta i { color: var(--c-muted-text); width: 1em; text-align: center; }
+.opp-card-org { margin-top: var(--sp-3); font-size: .88rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.opp-card-org a { color: var(--c-text); font-weight: 600; }
+.opp-card-org a:hover { color: var(--c-primary); }
+.opp-card-org .fa-circle-check { color: var(--c-yellow); }
+.opp-card-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.opp-card-foot { margin-top: var(--sp-3); font-size: .84rem; }
+.inline-form { display: inline-block; margin: 0; }
+
+/* ============================ Onboarding beachhead (R-Moat M5, #45) =================== */
+.onboard-step { max-width: 640px; }
+.onboard-kicker { font-family: var(--font-head); font-weight: 600; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--c-muted-text); margin: 0 0 var(--sp-2); }
+.onboard-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-5); }
+.onboard-candidates { list-style: none; margin: var(--sp-4) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.onboard-candidate { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius-sm); }
+.onboard-candidate-av { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--c-muted); color: var(--c-heading); font-family: var(--font-head); font-weight: 700; font-size: .85rem; }
+.onboard-candidate-av img { width: 100%; height: 100%; object-fit: cover; }
+.onboard-candidate-id { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.onboard-candidate-name { font-weight: 600; color: var(--c-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onboard-candidate-meta { display: flex; flex-wrap: wrap; gap: 4px var(--sp-3); font-size: .82rem; align-items: center; }
+.badge-unclaimed { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 480px) {
+    .onboard-candidate { flex-wrap: wrap; }
+    .onboard-actions { flex-direction: column; align-items: stretch; }
+    .onboard-actions .btn { width: 100%; }
+}
+
+/* Banner di ripresa onboarding (mai un modale) sulla pagina profilo del proprietario. */
+.profile-onboard-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-top: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: color-mix(in srgb, var(--c-yellow) 8%, var(--c-surface)); border: 1px solid color-mix(in srgb, var(--c-yellow) 30%, var(--c-border)); border-radius: var(--radius-sm); }
+.profile-onboard-banner i { color: var(--c-yellow); }
+.profile-onboard-banner p { margin: 0; flex: 1 1 240px; font-size: .92rem; color: var(--c-text); }
+.profile-onboard-banner .btn { flex-shrink: 0; }
