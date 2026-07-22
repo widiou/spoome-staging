@@ -24,10 +24,22 @@ final class AnalyticsService
 
     /**
      * Kill-switch privacy per il funnel anonimo (anon_id = hash sessione troncato, no PII).
-     * In attesa del sign-off di Sara (#44, punto aperto 2): mettere a false disattiva ogni
-     * raccolta di anon_id senza toccare i call site.
+     * DEFAULT false in attesa del sign-off di Sara (#44, punto aperto 2): gli eventi anonimi si
+     * registrano comunque, ma SENZA anon_id. Riattivare solo dopo l'ok privacy.
      */
-    private const COLLECT_ANON = true;
+    private const COLLECT_ANON = false;
+
+    /**
+     * Finestra di retention (giorni) per la minimizzazione GDPR. Default da confermare (#44).
+     * Applicata SENZA cron: prune inline probabilistico (vedi maybePrune()).
+     */
+    private const RETENTION_DAYS = 180;
+
+    /** 1 su N INSERT innesca una potatura leggera a batch singolo (nessun cron, latenza limitata). */
+    private const PRUNE_ODDS = 1000;
+
+    /** Righe massime rimosse per innesco inline (batch singolo, niente loop: latenza bounded). */
+    private const PRUNE_BATCH = 1000;
 
     /* ============================================================ CALL SITE ATTIVI ==== */
 
@@ -84,7 +96,9 @@ final class AnalyticsService
     ): void {
         try {
             $anonId = $actorUserId === null ? self::anonId() : null;
-            (new AnalyticsRepository())->insert($eventType, $actorUserId, $subjectType, $subjectId, $anonId, $meta);
+            $repo = new AnalyticsRepository();
+            $repo->insert($eventType, $actorUserId, $subjectType, $subjectId, $anonId, $meta);
+            self::maybePrune($repo);
         } catch (Throwable $e) {
             // Best-effort: non deve mai far cadere la richiesta. Anche il log è difeso (se il DB è la
             // causa, Logger — che scrive su app_logs — potrebbe a sua volta fallire).
@@ -98,6 +112,22 @@ final class AnalyticsService
                 @error_log('Analytics record failed: ' . $e->getMessage());
             }
         }
+    }
+
+    /**
+     * Retention SENZA cron (#7): con probabilità 1/PRUNE_ODDS ogni INSERT innesca UNA potatura a
+     * batch singolo (max PRUNE_BATCH righe, nessun loop → latenza limitata). Su molte richieste gli
+     * eventi oltre RETENTION_DAYS vengono drenati gradualmente (minimizzazione GDPR). Chiamata
+     * DENTRO il try fail-safe di record(): un errore di prune non tocca mai la richiesta.
+     * NB: la potatura completa on-demand (loop) resta disponibile via AnalyticsRepository::pruneOlderThan
+     * per un'eventuale azione admin esplicita.
+     */
+    private static function maybePrune(AnalyticsRepository $repo): void
+    {
+        if (\random_int(1, self::PRUNE_ODDS) !== 1) {
+            return;
+        }
+        $repo->pruneOnce(self::RETENTION_DAYS, self::PRUNE_BATCH);
     }
 
     /**

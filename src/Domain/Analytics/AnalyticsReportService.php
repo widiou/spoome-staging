@@ -40,9 +40,12 @@ final class AnalyticsReportService
 
         // Asse temporale continuo condiviso (stesse etichette per tutte le serie), formato compatibile
         // con Chart::line del modulo statistiche esistente: labels + array di valori per serie.
+        // Il primo label (giorno più vecchio) è anche il confine della finestra passato alle query →
+        // finestra ed etichette dallo STESSO orologio PHP: niente off-by-one sul bordo serie.
         $labels = $this->dayLabels($days);
-        $search = $this->repo->dailySeries(AnalyticsService::EVENT_SEARCH, $days);
-        $opens  = $this->repo->dailySeries(AnalyticsService::EVENT_PROFILE_OPEN, $days);
+        $since  = $labels[0];
+        $search = $this->repo->dailySeries(AnalyticsService::EVENT_SEARCH, $since);
+        $opens  = $this->repo->dailySeries(AnalyticsService::EVENT_PROFILE_OPEN, $since);
 
         return [
             'range'  => $days,

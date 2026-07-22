@@ -78,9 +78,10 @@ final class ProfileController extends Controller
         $total = $result['total'];
         $pages = $pg->pages($total);
 
-        // M4 · analytics d'uso "chi cerca": solo ricerche reali (query non vuota), non la landing.
-        // Fail-safe (non lancia mai). Il typeahead `suggest()` NON è instrumentato di proposito (rumoroso).
-        if ($search !== '') {
+        // M4 · analytics d'uso "chi cerca": solo ricerche reali (query non vuota) e SOLO alla prima
+        // pagina → la paginazione della stessa ricerca non gonfia il conteggio. Fail-safe (non lancia
+        // mai). Il typeahead `suggest()` NON è instrumentato di proposito (rumoroso).
+        if ($search !== '' && $page === 1) {
             \Spoome\Domain\Analytics\AnalyticsService::search(auth_id(), (int) $total);
         }
 

@@ -90,23 +90,30 @@ final class AnalyticsRepository
     }
 
     /**
-     * Serie temporale giornaliera di UN tipo di evento sugli ultimi $days giorni (giorni a zero NON
-     * riempiti qui: lo normalizza il chiamante). Usa idx_ae_type_created. :t e :d una sola volta.
+     * Serie temporale giornaliera di UN tipo di evento dal giorno $sinceDate ('Y-m-d') a oggi (giorni
+     * a zero NON riempiti qui: lo normalizza il chiamante). Usa idx_ae_type_created. :t e :since una
+     * sola volta.
+     *
+     * Il confine della finestra ($sinceDate) è calcolato dal chiamante con lo STESSO orologio PHP
+     * (Europe/Rome) che genera l'asse delle etichette → finestra ed etichette provengono dallo stesso
+     * clock, niente off-by-one né disallineamento del bordo (a differenza di CURDATE()/NOW() lato DB).
+     * TODO(tz, progetto): DATE(created_at) bucketizza ancora nella session-tz MySQL; l'allineamento
+     * pieno richiede di fissare @@session.time_zone in Core\Db (cambio cross-cutting da regressione
+     * su TUTTI i moduli, es. AdminStatsService) — fuori dallo scope di questo worktree.
      *
      * @return array<string,int> 'Y-m-d' => count
      */
-    public function dailySeries(string $eventType, int $days): array
+    public function dailySeries(string $eventType, string $sinceDate): array
     {
-        $days = max(1, $days);
         $stmt = $this->pdo->prepare(
             'SELECT DATE(created_at) AS d, COUNT(*) AS c
              FROM analytics_events
-             WHERE event_type = :t AND created_at >= (CURDATE() - INTERVAL :d DAY)
+             WHERE event_type = :t AND created_at >= :since
              GROUP BY d
              ORDER BY d'
         );
         $stmt->bindValue(':t', $eventType, PDO::PARAM_STR);
-        $stmt->bindValue(':d', $days, PDO::PARAM_INT);
+        $stmt->bindValue(':since', $sinceDate, PDO::PARAM_STR);
         $stmt->execute();
         $out = [];
         foreach ($stmt->fetchAll() as $row) {
@@ -138,11 +145,15 @@ final class AnalyticsRepository
     }
 
     /**
-     * Conversione tra due eventi (attori DISTINTI): quanti attori hanno fatto A e quanti B nella
-     * stessa finestra. Dimostra il gotcha EMULATE_PREPARES=false: la finestra serve in DUE
-     * sotto-query → placeholder SDOPPIATI (:from1/:from2), mai riusati.
+     * Conversione con vero SEMI-JOIN: `from` = attori distinti che hanno fatto l'evento sorgente nella
+     * finestra; `to` = quanti DI QUESTI hanno POI fatto l'evento obiettivo (created_at >= quello della
+     * sorgente). Così `to ⊆ from` per costruzione → il rate è sempre ≤ 100% (fix del difetto per cui,
+     * con profile_open su OGNI visita, due popolazioni indipendenti davano rate > 100%).
      *
-     * @return array{from:int,to:int} conteggi di attori distinti (from = evento sorgente, to = evento obiettivo)
+     * Gotcha EMULATE_PREPARES=false: la finestra e l'evento sorgente ricorrono in più punti → tutti i
+     * placeholder sono SDOPPIATI e mai riusati (: from1/2/3, :ef1/2).
+     *
+     * @return array{from:int,to:int}
      */
     public function conversion(string $fromEvent, string $toEvent, int $days): array
     {
@@ -150,16 +161,25 @@ final class AnalyticsRepository
         $stmt = $this->pdo->prepare(
             'SELECT
                 (SELECT COUNT(DISTINCT actor_user_id) FROM analytics_events
-                   WHERE event_type = :ef AND actor_user_id IS NOT NULL
+                   WHERE event_type = :ef1 AND actor_user_id IS NOT NULL
                      AND created_at >= (NOW() - INTERVAL :from1 DAY)) AS from_actors,
-                (SELECT COUNT(DISTINCT actor_user_id) FROM analytics_events
-                   WHERE event_type = :et AND actor_user_id IS NOT NULL
-                     AND created_at >= (NOW() - INTERVAL :from2 DAY)) AS to_actors'
+                (SELECT COUNT(DISTINCT s.actor_user_id) FROM analytics_events s
+                   WHERE s.event_type = :ef2 AND s.actor_user_id IS NOT NULL
+                     AND s.created_at >= (NOW() - INTERVAL :from2 DAY)
+                     AND EXISTS (
+                         SELECT 1 FROM analytics_events o
+                          WHERE o.actor_user_id = s.actor_user_id
+                            AND o.event_type = :et
+                            AND o.created_at >= s.created_at
+                            AND o.created_at >= (NOW() - INTERVAL :from3 DAY)
+                     )) AS to_actors'
         );
-        $stmt->bindValue(':ef', $fromEvent, PDO::PARAM_STR);
+        $stmt->bindValue(':ef1', $fromEvent, PDO::PARAM_STR);
+        $stmt->bindValue(':ef2', $fromEvent, PDO::PARAM_STR);
         $stmt->bindValue(':et', $toEvent, PDO::PARAM_STR);
         $stmt->bindValue(':from1', $days, PDO::PARAM_INT);
         $stmt->bindValue(':from2', $days, PDO::PARAM_INT);
+        $stmt->bindValue(':from3', $days, PDO::PARAM_INT);
         $stmt->execute();
         $row = $stmt->fetch() ?: ['from_actors' => 0, 'to_actors' => 0];
         return ['from' => (int) $row['from_actors'], 'to' => (int) $row['to_actors']];
@@ -168,9 +188,27 @@ final class AnalyticsRepository
     /* =========================================================== RETENTION ==== */
 
     /**
-     * Potatura on-demand (NO cron): cancella a BATCH gli eventi oltre la finestra di retention, per
-     * non tenere lock lunghi. Range-scan su idx_ae_created. :d e :lim una sola volta per iterazione.
-     * Innescabile da un'azione admin o da un prune inline probabilistico. Ritorna le righe rimosse.
+     * Potatura a batch SINGOLO (una sola DELETE ... LIMIT, nessun loop): lavoro e latenza limitati,
+     * pensata per l'innesco inline probabilistico (vedi AnalyticsService::maybePrune). Ritorna le
+     * righe rimosse in questo colpo. Range-scan su idx_ae_created. :d e :lim una sola volta.
+     */
+    public function pruneOnce(int $days, int $batch = 1000): int
+    {
+        $days  = max(1, $days);
+        $batch = max(1, min($batch, 50000));
+        $stmt = $this->pdo->prepare(
+            'DELETE FROM analytics_events WHERE created_at < (NOW() - INTERVAL :d DAY) LIMIT :lim'
+        );
+        $stmt->bindValue(':d', $days, PDO::PARAM_INT);
+        $stmt->bindValue(':lim', $batch, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Potatura COMPLETA on-demand (NO cron): cancella a BATCH in loop tutti gli eventi oltre la
+     * finestra di retention, per non tenere lock lunghi. Per un'azione admin esplicita (drena tutto
+     * l'arretrato in un colpo). Range-scan su idx_ae_created. :d e :lim una sola volta per iterazione.
      */
     public function pruneOlderThan(int $days, int $batch = 5000): int
     {
