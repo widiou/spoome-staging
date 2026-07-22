@@ -169,7 +169,7 @@ final class PostRepository
     public function recentWithAuthor(int $page = 1, int $perPage = 30): array
     {
         $offset = Pagination::of($page, $perPage)->offset();
-        $total  = (int) $this->pdo->query('SELECT COUNT(*) FROM posts')->fetchColumn();
+        $total  = $this->approxTotalPosts();
 
         $stmt = $this->pdo->prepare(
             'SELECT po.id, po.body, po.created_at, p.handle, p.display_name
@@ -181,6 +181,29 @@ final class PostRepository
         $stmt->execute();
 
         return ['items' => $stmt->fetchAll(), 'total' => $total];
+    }
+
+    /**
+     * Totale APPROSSIMATO dei post per la paginazione della moderazione admin.
+     *
+     * `SELECT COUNT(*) FROM posts` su InnoDB è un full index scan O(n): su una tabella a crescita
+     * illimitata diventa costoso e girerebbe a ogni apertura della lista di moderazione. Il totale
+     * qui serve SOLO a dimensionare la paginazione admin (numero di pagine): un'approssimazione è
+     * accettabile. TABLE_ROWS di information_schema è una stima O(1) dalle statistiche del motore
+     * (nessuna scansione di tabella). Fallback difensivo a 0 se la stima non è disponibile.
+     *
+     * Follow-up (fuori scope): se in futuro servisse un totale ESATTO e cheap, si introduce un
+     * contatore denormalizzato globale (riga di counters + manutenzione su create/delete + reconcile),
+     * coerente col pattern dei contatori denormalizzati già usati altrove.
+     */
+    private function approxTotalPosts(): int
+    {
+        $stmt = $this->pdo->query(
+            "SELECT TABLE_ROWS FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'posts'"
+        );
+        $rows = $stmt !== false ? $stmt->fetchColumn() : false;
+        return $rows !== false && $rows !== null ? (int) $rows : 0;
     }
 
     /** Elimina un post senza vincolo di ownership (azione admin). True se eliminato. */
