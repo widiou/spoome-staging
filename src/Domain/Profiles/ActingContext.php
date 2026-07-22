@@ -18,8 +18,11 @@ use Spoome\Domain\Users\User;
  * `profiles.user_id === user->id`, trattandolo come `owner`. Così il comportamento 1:1 resta identico
  * anche prima che ogni call-site sia cablato. Il backfill R0 rende questo ramo quasi mai usato.
  *
- * STATO R1: costruito ma NON cablato. Nessun controller lo usa ancora; `profiles.user_id` resta
- * autoritativo. R5 sposterà le write su `canActAs(...) + acting id`; questa classe è già pronta.
+ * STATO: LOAD-BEARING per l'authz multi-profilo. Cablato da Affiliations e da Opportunities (M2), che
+ * risolvono l'acting profile via `resolveForWrite('admin')` (scritture) / `resolve()` (letture) e
+ * costruiscono l'authz di dominio sul valore ritornato. Non è più solo predisposizione: un difetto qui
+ * è un difetto di autorizzazione. Il rollout dei restanti call-site verso `canActAs(...) + acting id`
+ * prosegue; dove non ancora cablato, il dual-read su `profiles.user_id` mantiene il comportamento 1:1.
  */
 final class ActingContext
 {
