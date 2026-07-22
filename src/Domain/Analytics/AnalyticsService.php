@@ -24,10 +24,15 @@ final class AnalyticsService
 
     /**
      * Kill-switch privacy per il funnel anonimo (anon_id = hash sessione troncato, no PII).
-     * DEFAULT false in attesa del sign-off di Sara (#44, punto aperto 2): gli eventi anonimi si
-     * registrano comunque, ma SENZA anon_id. Riattivare solo dopo l'ok privacy.
+     * OFF di default in attesa del sign-off di Sara (#44, punto aperto 2): gli eventi anonimi si
+     * registrano comunque, ma SENZA anon_id. Attivabile a runtime via env ANALYTICS_COLLECT_ANON
+     * (1/true/on/yes) DOPO l'ok privacy — nessun cambio di codice richiesto.
      */
-    private const COLLECT_ANON = false;
+    private static function collectAnon(): bool
+    {
+        $v = \strtolower((string) (\getenv('ANALYTICS_COLLECT_ANON') ?: ''));
+        return \in_array($v, ['1', 'true', 'on', 'yes'], true);
+    }
 
     /**
      * Finestra di retention (giorni) per la minimizzazione GDPR. Default da confermare (#44).
@@ -137,7 +142,7 @@ final class AnalyticsService
      */
     private static function anonId(): ?string
     {
-        if (!self::COLLECT_ANON) {
+        if (!self::collectAnon()) {
             return null;
         }
         if (\session_status() !== \PHP_SESSION_ACTIVE) {
