@@ -3,8 +3,10 @@
 namespace Spoome\Domain\Maintenance;
 
 use PDO;
+use Spoome\Core\Config;
 use Spoome\Core\Db;
 use Spoome\Core\Logger;
+use Spoome\Core\Mailer;
 use Spoome\Domain\Auth\EmailVerificationService;
 use Spoome\Domain\Auth\PasswordResetService;
 use Spoome\Domain\Auth\RateLimiter;
@@ -12,6 +14,7 @@ use Spoome\Domain\Auth\TokenService;
 use Spoome\Domain\Events\EventRepository;
 use Spoome\Domain\Links\LinkPreviewRepository;
 use Spoome\Domain\Notifications\NotificationRepository;
+use Spoome\Support\Str;
 
 /**
  * Manutenzione schedulabile (cron SiteGround via jobs/maintenance.php):
@@ -34,6 +37,9 @@ final class MaintenanceService
     public const USER_EVENTS_DAYS     = 30;
     public const NOTIFICATIONS_DAYS   = 90;   // solo notifiche già lette
 
+    /** Soglia di default per l'alert spike errori/24h (sovrascrivibile via ALERT_ERROR_THRESHOLD_24H). */
+    public const DEFAULT_ERROR_THRESHOLD_24H = 50;
+
     private PDO $pdo;
 
     public function __construct(?PDO $pdo = null)
@@ -42,15 +48,117 @@ final class MaintenanceService
     }
 
     /**
-     * Esegue purge + reconcile e ritorna il riepilogo per lo stdout del job.
-     * @return array{purged:array<string,int>, reconciled:array<string,int>}
+     * Esegue purge + reconcile + rilevazione spike errori (con invio digest se presenti)
+     * e ritorna il riepilogo per lo stdout del job.
+     * @return array{purged:array<string,int>, reconciled:array<string,int>, alerts:array<int,array{fingerprint:string,count:int,exception_class:?string,sample:string,last:string}>}
      */
     public function run(int $batch = 5000): array
     {
+        $alerts = $this->detectErrorSpikes();
+        if ($alerts !== []) {
+            $this->sendErrorSpikeAlert($alerts);
+        }
+
         return [
             'purged'     => $this->purge($batch),
             'reconciled' => $this->reconcileCounters(),
+            'alerts'     => $alerts,
         ];
+    }
+
+    /**
+     * Rileva i fingerprint di app_logs che nelle ultime 24h hanno superato la soglia di errori.
+     * Idempotente e SENZA effetti collaterali (nessuna scrittura): solo lettura, così è testabile
+     * in isolamento e riusabile fuori dal job di manutenzione (es. una futura dashboard admin).
+     *
+     * Anti-spam: il job gira 1×/giorno (cron 03:17) → un digest al giorno dei fingerprint
+     * ATTUALMENTE sopra soglia è il comportamento accettato (nessun lock/dedup più complesso:
+     * se un fingerprint resta sopra soglia per più giorni consecutivi, l'admin riceve un digest
+     * ogni giorno finché non rientra — è il segnale voluto, non uno spam da sopprimere).
+     *
+     * @param int|null $threshold soglia iniettabile per i test; se null usa Config (ALERT_ERROR_THRESHOLD_24H).
+     * @return array<int,array{fingerprint:string,count:int,exception_class:?string,sample:string,last:string}>
+     */
+    public function detectErrorSpikes(?int $threshold = null): array
+    {
+        if ($threshold === null) {
+            $threshold = (int) Config::get('ALERT_ERROR_THRESHOLD_24H', self::DEFAULT_ERROR_THRESHOLD_24H);
+        }
+        // Clamp difensivo: una soglia <= 0 farebbe scattare l'alert su QUALSIASI errore
+        // (rumore/spam — lezione dal #5). Ricadiamo sempre sul default sensato.
+        if ($threshold <= 0) {
+            $threshold = self::DEFAULT_ERROR_THRESHOLD_24H;
+        }
+
+        // level = 'error': è l'UNICO livello di gravità che il Logger persiste in app_logs oltre a
+        // 'warning' (vedi Logger::DB_LEVELS). NON esiste 'critical' → non va messo in query (sarebbe
+        // codice morto). 'warning' (che include gli eventi di Logger::security, es. spike di login
+        // falliti) è ESCLUSO di proposito: l'alert è scoped agli errori applicativi. Un alert dedicato
+        // agli spike di warning/sicurezza è un follow-up di prodotto separato, non implicito qui.
+        // LIMIT 100: cap difensivo alla dimensione del digest email (un attaccante che generasse molti
+        // fingerprint distinti sopra soglia non può gonfiare l'email oltre 100 righe).
+        $stmt = $this->pdo->prepare(
+            "SELECT fingerprint, COUNT(*) c, MAX(message) sample, MAX(exception_class) klass, MAX(created_at) last
+             FROM app_logs
+             WHERE level = 'error' AND created_at > NOW() - INTERVAL 24 HOUR
+             GROUP BY fingerprint
+             HAVING c > :threshold
+             ORDER BY c DESC
+             LIMIT 100"
+        );
+        $stmt->bindValue(':threshold', $threshold, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $out = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $out[] = [
+                'fingerprint'      => (string) $row['fingerprint'],
+                'count'            => (int) $row['c'],
+                'exception_class'  => $row['klass'] !== null ? (string) $row['klass'] : null,
+                'sample'           => (string) $row['sample'],
+                'last'             => (string) $row['last'],
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Invia UN digest via Mailer con l'elenco dei fingerprint sopra soglia. Canale coerente con
+     * il resto dell'app (Mailer::send): in staging logga soltanto (storage/logs/mail.log), in
+     * produzione invia via mail(). Sicurezza livello MASSIMO anche in un'email: ogni campo che
+     * viene da app_logs (message/exception_class) è dato potenzialmente ostile → sempre e().
+     *
+     * @param array<int,array{fingerprint:string,count:int,exception_class:?string,sample:string,last:string}> $alerts
+     */
+    private function sendErrorSpikeAlert(array $alerts): void
+    {
+        $to = (string) Config::get(
+            'ADMIN_ALERT_EMAIL',
+            Config::get('MAIL_FROM_ADDRESS', 'no-reply@spoome.it')
+        );
+        $n = count($alerts);
+        $subject = sprintf('[Spoome] %d fingerprint sopra soglia errori/24h', $n);
+
+        $rows = '';
+        foreach ($alerts as $a) {
+            $sample = Str::clamp($a['sample'], 200);
+            $rows .= sprintf(
+                '<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+                e($a['fingerprint']),
+                $a['count'],
+                e($a['exception_class'] ?? '—'),
+                e($sample),
+                e($a['last'])
+            );
+        }
+
+        $body = '<h2>' . e($subject) . '</h2>'
+            . '<p>Fingerprint con oltre soglia errori (level=error) nelle ultime 24 ore (job di manutenzione notturno).</p>'
+            . '<table border="1" cellpadding="6" cellspacing="0">'
+            . '<thead><tr><th>fingerprint</th><th>count</th><th>exception_class</th><th>sample message</th><th>ultimo timestamp</th></tr></thead>'
+            . '<tbody>' . $rows . '</tbody></table>';
+
+        Mailer::send($to, $subject, $body);
     }
 
     /**
