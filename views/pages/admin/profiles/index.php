@@ -48,7 +48,7 @@ $qs = static function (array $over) use ($filters, $page): string {
             <?php foreach ($orgs as $o): $isVerified = !empty($o['verified_at']); ?>
                 <tr>
                     <td>
-                        <a class="admin-link" href="<?= e(url('atleti/' . $o['handle'])) ?>" target="_blank" rel="noopener"><?= e($o['display_name']) ?> ↗</a>
+                        <a class="admin-link" href="<?= e(url('atleti/' . $o['handle'])) ?>" target="_blank" rel="noopener"><?= e($o['display_name']) ?> <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                         <span class="admin-handle">/<?= e($o['handle']) ?></span>
                         <?php if (($o['claim_status'] ?? '') === 'unclaimed'): ?>
                             <span class="admin-badge"><?= e(t('admin.profiles.unclaimed')) ?></span>
