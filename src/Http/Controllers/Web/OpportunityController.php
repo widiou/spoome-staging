@@ -158,6 +158,9 @@ final class OpportunityController extends Controller
         $user = CurrentUser::resolve($request);
         $res  = (new OpportunityService())->publish($actingPid, $user?->id, $request->body(), $request->ip());
 
+        // TODO (UX, non-bloccante): al fallimento di validazione il form no-JS riparte vuoto (flash +
+        // redirect). Ripopolare i campi inviati (via flash dei vecchi input o rendering inline del form
+        // con gli errori) quando si rifinisce la UX di pubblicazione.
         $newId    = $res->ok && is_array($res->data) ? (int) ($res->data['id'] ?? 0) : 0;
         $redirect = $res->ok && $newId > 0 ? 'opportunita/' . $newId : 'opportunita/pubblica';
         $this->respond($request, $res, $redirect, $res->ok ? (string) ($res->meta['message'] ?? '') : null);

@@ -16,12 +16,10 @@ use Spoome\Domain\Sports\SportRepository;
  * AUTHZ AL LIVELLO DATI (MASSIMO, defense-in-depth):
  *  - $actingPid arriva GIÀ validato dal controller (ActingContext::resolveForWrite('admin') → l'utente
  *    può agire come quel profilo). Qui si verifica in PIÙ che l'acting sia un'ORGANIZZAZIONE
- *    (is_organization=1): solo società/associazioni/federazioni pubblicano opportunità.
+ *    (is_organization=1) e VERIFICATA (verified_at, badge M3): solo società/associazioni/federazioni
+ *    verificate pubblicano opportunità — gate di fiducia disegnato da Bianca ("verifica la pagina per
+ *    pubblicare"), la bacheca parte sicura.
  *  - chiudere un'opportunità: SOLO l'org che l'ha pubblicata (org_profile_id === actingPid).
- *
- * TODO (M3 · Verification-da-club): la pubblicazione richiederà anche il BADGE VERIFICATO dell'org
- * (gate di fiducia disegnato da Bianca: "verifica la pagina per pubblicare"). Oggi il gate è il solo
- * tipo-profilo org; quando M3 è live, aggiungere qui il requisito `verified_at IS NOT NULL`.
  */
 final class OpportunityService
 {
@@ -66,7 +64,12 @@ final class OpportunityService
         if (empty($org['is_organization'])) {
             return ServiceResult::fail(I18n::t('opp.error.not_org'), 403);
         }
-        // TODO(M3): quando il badge verificato-da-club è live → gate `empty($org['verified_at'])` = 403.
+        // Gate di fiducia (M3 · Verification-da-club): SOLO le organizzazioni VERIFICATE pubblicano.
+        // `verified_at` su profiles è la stessa fonte del badge di M3 (deployato nello stesso blocco):
+        // la bacheca parte sicura, niente spam da pagine non verificate.
+        if (empty($org['verified_at'])) {
+            return ServiceResult::fail(I18n::t('opp.error.org_unverified'), 403);
+        }
 
         if ($this->limiter->tooManyByKey('opp:publish:' . $actingPid, self::MAX_ACTIONS, self::WINDOW_MIN)) {
             return ServiceResult::fail(I18n::t('opp.error.throttled'), 429);

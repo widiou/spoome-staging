@@ -65,7 +65,7 @@ final class ApplicationService
         if ($opp['status'] !== 'open') {
             return ServiceResult::fail(I18n::t('app.error.closed'), 422);
         }
-        // gmdate: allinea il confronto DATE al fuso di MySQL (sessione UTC → CURDATE() UTC, come listPublic).
+        // gmdate: UTC, coerente con UTC_DATE() in OpportunityRepository::listPublic (fuso-indipendente).
         if ($opp['deadline'] !== null && $opp['deadline'] < gmdate('Y-m-d')) {
             return ServiceResult::fail(I18n::t('app.error.expired'), 422);
         }
@@ -77,7 +77,17 @@ final class ApplicationService
         }
 
         $msg = $coverMessage !== null ? mb_substr(trim($coverMessage), 0, 1000) : null;
-        $id  = $this->apps->create($oppId, $actingPid, $msg);
+        try {
+            $id = $this->apps->create($oppId, $actingPid, $msg);
+        } catch (\PDOException $e) {
+            // Doppio invio concorrente: il pre-check findByOpportunityAndApplicant non è autoritativo,
+            // la UNIQUE(opportunity_id, applicant_profile_id) chiude la finestra TOCTOU. Traduci la
+            // violazione d'integrità (SQLSTATE 23000 / errno 1062) in 422 invece di propagare un 500.
+            if ($this->isDuplicate($e)) {
+                return ServiceResult::fail(I18n::t('app.error.already'), 422);
+            }
+            throw $e;
+        }
         $this->limiter->hit('app:apply:' . $actingPid, $ip);
 
         return ServiceResult::ok(['id' => $id, 'status' => 'submitted'], ['message' => I18n::t('app.done.applied')], 201);
@@ -118,6 +128,10 @@ final class ApplicationService
      * Nucleo comune di accept/reject. Authz: l'acting deve essere l'org publisher dell'opportunità
      * cui la candidatura appartiene (no IDOR). Guard TOCTOU nel repo (respond aggiorna solo se submitted).
      */
+    // TODO (hardening, non-bloccante): accept/reject fanno due letture (candidatura → opportunità) e
+    // poi l'UPDATE guardato. L'authz è già solida (ownership verificata + guard TOCTOU su respond), ma
+    // un UPDATE con JOIN a opportunities che filtri `org_profile_id = :acting` renderebbe l'ownership
+    // atomica nella stessa query. Valutare quando la tabella cresce.
     private function decide(int $actingPid, int $appId, string $status, string $doneKey, string $ip): ServiceResult
     {
         if (!in_array($status, self::DECISIONS, true)) {
@@ -143,5 +157,12 @@ final class ApplicationService
         $this->limiter->hit('opp:manage:' . $actingPid, $ip);
 
         return ServiceResult::ok(['id' => $appId, 'status' => $status], ['message' => I18n::t($doneKey)]);
+    }
+
+    /** Riconosce una violazione di UNIQUE/integrità (SQLSTATE 23000 / errno 1062 duplicate entry). */
+    private function isDuplicate(\PDOException $e): bool
+    {
+        $errno = isset($e->errorInfo[1]) ? (int) $e->errorInfo[1] : 0;
+        return (string) $e->getCode() === '23000' || $errno === 1062;
     }
 }

@@ -4,7 +4,7 @@
  * R-Moat · M2 — Opportunities (bacheca di reclutamento sportivo). MVP SENZA pagamenti.
  *
  * Un profilo-ORGANIZZAZIONE (società / associazione / federazione) pubblica un'opportunità; un
- * atleta si candida (vedi 0035 opportunity_applications). È il primo dei JTBD monetizzabili
+ * atleta si candida (vedi 0036 opportunity_applications). È il primo dei JTBD monetizzabili
  * (scoperta lato-domanda + efficienza di recruiting) — qui solo lo scheletro dati.
  *
  * ── Vocabolario NON hardcodato (`kind`) ──────────────────────────────────────────────────────

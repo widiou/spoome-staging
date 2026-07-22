@@ -120,7 +120,10 @@ final class OpportunityRepository
         $offset = max(0, ($page - 1) * $perPage);
 
         // Clausole condivise da COUNT e SELECT. Named param distinti (nessun riuso nella stessa query).
-        $where  = ["o.status = 'open'", '(o.deadline IS NULL OR o.deadline >= CURDATE())'];
+        // UTC_DATE() (non CURDATE()): la "scadenza" è confrontata in UTC a prescindere dal fuso di
+        // sessione MySQL, coerente col gmdate() UTC di ApplicationService::apply e
+        // OpportunityPresenter::state (e con UTC_TIMESTAMP() già usato nel feed).
+        $where  = ["o.status = 'open'", '(o.deadline IS NULL OR o.deadline >= UTC_DATE())'];
         $params = [];
         if ($sportId !== null) {
             $where[] = 'o.sport_id = :sport';

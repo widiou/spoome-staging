@@ -976,6 +976,7 @@ return [
     // Errori.
     'opp.error.not_found'           => 'Opportunità non trovata.',
     'opp.error.not_org'            => 'Solo le pagine di società, associazioni o federazioni possono pubblicare opportunità.',
+    'opp.error.org_unverified'     => 'Verifica la tua pagina per pubblicare opportunità.',
     'opp.error.forbidden'           => 'Non hai i permessi per questa opportunità.',
     'opp.error.throttled'           => 'Troppe operazioni. Riprova tra poco.',
     'opp.error.already_closed'      => 'L\'opportunità è già chiusa.',

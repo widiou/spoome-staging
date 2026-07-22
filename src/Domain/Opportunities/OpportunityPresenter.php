@@ -116,7 +116,7 @@ final class OpportunityPresenter
             return 'closed';
         }
         $deadline = $o['deadline'] ?? null;
-        // gmdate: coerente col fuso UTC di MySQL (CURDATE() in OpportunityRepository::listPublic).
+        // gmdate: UTC, coerente con UTC_DATE() in OpportunityRepository::listPublic (fuso-indipendente).
         if ($deadline !== null && $deadline < gmdate('Y-m-d')) {
             return 'expired';
         }
