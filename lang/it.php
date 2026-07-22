@@ -53,6 +53,10 @@ return [
     'atleti.pagination.status'=> 'Pagina {page} di {pages}',
     'atleti.verified'         => 'Verificato',
     'atleti.verified_org'     => 'Verificata',
+    // Badge "verificato dalla società" (M3): derivato da un'affiliazione confermata verso un'org verificata.
+    'atleti.verified_club'     => 'Verificato dalla società',
+    'atleti.verified_club_org' => 'Verificata da federazione',
+    'atleti.verified_club_by'  => 'Affiliazione confermata da {org}',
 
     // Pagina profilo (/atleti/{handle})
     'atleti.show.about'             => 'Chi è',
