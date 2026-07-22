@@ -106,7 +106,9 @@ final class AuthController extends Controller
             $sportId
         );
 
-        if (!$result['ok'] && ($result['error'] ?? '') !== 'email_taken') {
+        // Anti-enumeration: `email_taken` è trattato come un successo (stessa risposta), gli altri
+        // fallimenti mostrano un errore generico. Il codice semantico viaggia in ServiceResult->error.
+        if (!$result->ok && $result->error !== 'email_taken') {
             $this->renderRegister($repo, I18n::t('auth.error.register_failed'), $data);
             return;
         }
@@ -137,12 +139,14 @@ final class AuthController extends Controller
         }
 
         $result = (new AuthService())->login((string) $data['email'], (string) $data['password'], $request->ip());
-        if (!$result['ok']) {
-            $this->renderLogin($result['error'], $data);
+        if (!$result->ok) {
+            $this->renderLogin($result->error, $data);
             return;
         }
 
-        $this->startUserSession((int) $result['user']->id, $result['user']->role, $result['user']->sessionEpoch);
+        // ok → data è l'entità User; #4/#5 richiedono role + sessionEpoch per fissare l'epoch/ancore in sessione.
+        $user = $result->data;
+        $this->startUserSession((int) $user->id, $user->role, $user->sessionEpoch);
         Response::redirect('');
     }
 
@@ -247,12 +251,12 @@ final class AuthController extends Controller
         }
         if ($error === null) {
             $result = (new AuthService())->resetPassword($token, $pw, $request->ip());
-            if ($result['ok']) {
+            if ($result->ok) {
                 Session::flash(I18n::t('auth.flash.reset_done'), 'success');
                 Response::redirect('accedi');
                 return;
             }
-            $error = $result['error'] ?? I18n::t('auth.error.reset_failed');
+            $error = $result->error ?? I18n::t('auth.error.reset_failed');
         }
 
         View::render('auth/reset-password', [
