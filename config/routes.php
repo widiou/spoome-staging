@@ -36,6 +36,7 @@ use Spoome\Http\Controllers\Web\Admin\StatsController as AdminStats;
 use Spoome\Http\Controllers\Web\Admin\LogsController as AdminLogs;
 use Spoome\Http\Controllers\Web\Admin\ModerationController as AdminMod;
 use Spoome\Http\Controllers\Web\Admin\ClaimsController as AdminClaims;
+use Spoome\Http\Controllers\Web\Admin\ProfilesController as AdminProfiles;
 use Spoome\Http\Controllers\Web\Admin\NewsController as AdminNews;
 use Spoome\Http\Controllers\Api\V1\AuthController as ApiAuth;
 use Spoome\Http\Controllers\Api\V1\ProfileController as ApiProfile;
@@ -243,6 +244,12 @@ $router->post('/admin/utenti/{id}/riattiva', [AdminUsers::class, 'reactivate'], 
 $router->post('/admin/utenti/{id}/verifica', [AdminUsers::class, 'verifyEmail'], [$auth, $admin, $stepup, $csrf]);
 $router->post('/admin/utenti/{id}/ruolo', [AdminUsers::class, 'changeRole'], [$auth, $admin, $stepup, $csrf]);
 $router->post('/admin/utenti/{id}/verifica-profilo', [AdminUsers::class, 'verifyProfile'], [$auth, $admin, $stepup, $csrf]);
+
+// Verifica PAGINE-org (ancora del badge "verificato dalla società", M3) — by profile_id, disaccoppiata
+// da user_id (una pagina può essere unclaimed). Stessa catena delle altre azioni admin sensibili.
+$router->get('/admin/profili', [AdminProfiles::class, 'index'], [$auth, $admin, $stepup]);
+$router->post('/admin/profili/{id}/verifica', [AdminProfiles::class, 'verify'], [$auth, $admin, $stepup, $csrf]);
+$router->post('/admin/profili/{id}/rimuovi-verifica', [AdminProfiles::class, 'unverify'], [$auth, $admin, $stepup, $csrf]);
 
 // Rivendicazioni (moderazione claim + creazione profili non rivendicati)
 $router->get('/admin/rivendicazioni', [AdminClaims::class, 'index'], [$auth, $admin, $stepup]);
