@@ -146,9 +146,18 @@ final class UserRepository
     public function findDetailRow(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
+            // Il profilo mostrato è il PERSONALE (is_organization = 0, il più vecchio) per allinearsi a
+            // ciò su cui agisce la verifica-profilo utente (findPersonalByUserId, deterministico). Le
+            // pagine-org di un utente multi-profilo si verificano dall'area /admin/profili, non da qui.
             'SELECT u.*, p.id AS profile_id, p.handle AS profile_handle, p.display_name AS profile_name,
                     p.visibility AS profile_visibility, p.verified_at AS profile_verified_at
-             FROM users u LEFT JOIN profiles p ON p.user_id = u.id
+             FROM users u
+             LEFT JOIN profiles p ON p.id = (
+                 SELECT p2.id FROM profiles p2
+                 JOIN profile_types pt2 ON pt2.id = p2.profile_type_id
+                 WHERE p2.user_id = u.id AND pt2.is_organization = 0
+                 ORDER BY p2.id ASC LIMIT 1
+             )
              WHERE u.id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);

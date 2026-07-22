@@ -169,6 +169,40 @@ final class AffiliationRepository
     }
 
     /**
+     * ANCORAGGIO del badge "verificato dalla società" (M3 Verification-da-club). Ritorna le organizzazioni
+     * che ANCORANO la verifica di $memberPid: affiliazioni CONFERMATE dove $memberPid è il membro e la
+     * controparte è un'organizzazione **essa stessa verificata** (`o.verified_at IS NOT NULL`).
+     *
+     * Il badge è DERIVATO da questa condizione — nessun flag denormalizzato da tenere in sync: la revoca è
+     * automatica e atomica (rimozione dell'affiliazione, oppure l'admin che annulla la verifica dell'org →
+     * alla lettura successiva l'ancora sparisce, zero finestra di stato stantìo / zero race di revoca).
+     *
+     * SPORT-GENERICO: l'ancora è "una qualsiasi org verificata" (società/associazione/federazione) — nessuna
+     * federazione hardcodata. La verifica dell'org è concessa fuori banda dallo staff (step-up + audit) contro
+     * evidenza reale (tesseramento/affiliazione ufficiale): è quella la "fonte reale". Un profilo-pagina creato
+     * ad-hoc nasce NON verificato → non ancora nulla (chiude lo spoof self-attest della finta società).
+     *
+     * Un solo placeholder (nessun id riusato). Correnti prima, poi per conferma più recente.
+     * @return array<int,array{org_id:int,org_handle:string,org_name:string,is_organization:int,is_current:int,confirmed_at:?string}>
+     */
+    public function verifyingOrgsOf(int $memberPid): array
+    {
+        $sql = "SELECT o.id AS org_id, o.handle AS org_handle, o.display_name AS org_name,
+                       ot.is_organization AS is_organization, a.is_current, a.confirmed_at
+                FROM profile_affiliations a
+                JOIN profiles o ON o.id = a.org_profile_id
+                JOIN profile_types ot ON ot.id = o.profile_type_id
+                WHERE a.member_profile_id = :mem
+                  AND a.status = 'confirmed'
+                  AND ot.is_organization = 1
+                  AND o.verified_at IS NOT NULL
+                ORDER BY a.is_current DESC, a.confirmed_at DESC, a.id DESC";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['mem' => $memberPid]);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Singola richiesta IN USCITA arricchita per id, ristretta a quelle create da $pid (scoping a livello
      * dati). Alimenta il frammento async (append della card outgoing dopo l'invio). Placeholder distinti.
      */

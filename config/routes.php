@@ -28,14 +28,17 @@ use Spoome\Http\Controllers\Web\SkillController as WebSkill;
 use Spoome\Http\Controllers\Web\AffiliationController as WebAffiliation;
 use Spoome\Http\Controllers\Web\RecommendationController as WebReco;
 use Spoome\Http\Controllers\Web\ClaimController as WebClaim;
+use Spoome\Http\Controllers\Web\OpportunityController as WebOpportunity;
 use Spoome\Http\Controllers\Web\SeoController as WebSeo;
 use Spoome\Http\Controllers\Web\Admin\DashboardController as AdminDashboard;
 use Spoome\Http\Controllers\Web\Admin\AuthController as AdminAuth;
 use Spoome\Http\Controllers\Web\Admin\UsersController as AdminUsers;
 use Spoome\Http\Controllers\Web\Admin\StatsController as AdminStats;
+use Spoome\Http\Controllers\Web\Admin\AnalyticsController as AdminAnalytics;
 use Spoome\Http\Controllers\Web\Admin\LogsController as AdminLogs;
 use Spoome\Http\Controllers\Web\Admin\ModerationController as AdminMod;
 use Spoome\Http\Controllers\Web\Admin\ClaimsController as AdminClaims;
+use Spoome\Http\Controllers\Web\Admin\ProfilesController as AdminProfiles;
 use Spoome\Http\Controllers\Web\Admin\NewsController as AdminNews;
 use Spoome\Http\Controllers\Api\V1\AuthController as ApiAuth;
 use Spoome\Http\Controllers\Api\V1\ProfileController as ApiProfile;
@@ -47,6 +50,7 @@ use Spoome\Http\Controllers\Api\V1\AffiliationController as ApiAffiliation;
 use Spoome\Http\Controllers\Api\V1\RecommendationController as ApiReco;
 use Spoome\Http\Controllers\Api\V1\SuggestionController as ApiSuggestion;
 use Spoome\Http\Controllers\Api\V1\ClaimController as ApiClaim;
+use Spoome\Http\Controllers\Api\V1\OpportunityController as ApiOpportunity;
 use Spoome\Http\Controllers\Api\V1\MediaController as ApiMedia;
 use Spoome\Http\Controllers\Api\V1\PagesController as ApiPages;
 use Spoome\Http\Controllers\Api\V1\LinkController as ApiLink;
@@ -198,6 +202,22 @@ $router->post('/atleti/{handle}/raccomanda', [WebReco::class, 'write'], [$auth, 
 $router->post('/atleti/{handle}/rivendica', [WebClaim::class, 'request'], [$auth, $csrf]);
 $router->get('/rivendicazioni', [WebClaim::class, 'mine'], [$auth]);
 
+// Opportunità (bacheca reclutamento). Browse/dettaglio pubblici (SEO); pubblicazione/candidatura/gestione
+// autenticate (CSRF). NB ordine: le rotte statiche (/pubblica /mie /candidature) PRIMA di /{id}: il
+// segnaposto {id}=[^/]+ le catturerebbe (prima corrispondenza vince nel Router).
+$router->get('/opportunita', [WebOpportunity::class, 'index']);
+$router->get('/opportunita/pubblica', [WebOpportunity::class, 'publishForm'], [$auth]);
+$router->get('/opportunita/mie', [WebOpportunity::class, 'mine'], [$auth]);
+$router->get('/opportunita/candidature', [WebOpportunity::class, 'myApplications'], [$auth]);
+$router->post('/opportunita', [WebOpportunity::class, 'create'], [$auth, $csrf]);
+$router->get('/opportunita/{id}', [WebOpportunity::class, 'show']);
+$router->get('/opportunita/{id}/candidature', [WebOpportunity::class, 'applications'], [$auth]);
+$router->post('/opportunita/{id}/candidati', [WebOpportunity::class, 'apply'], [$auth, $csrf]);
+$router->post('/opportunita/{id}/chiudi', [WebOpportunity::class, 'close'], [$auth, $csrf]);
+// Decisioni dell'org sulle candidature ricevute (accetta / non-seleziona).
+$router->post('/candidature/{id}/accetta', [WebOpportunity::class, 'acceptApplication'], [$auth, $csrf]);
+$router->post('/candidature/{id}/rifiuta', [WebOpportunity::class, 'rejectApplication'], [$auth, $csrf]);
+
 // Notifiche in-app
 $router->get('/notifiche', [\Spoome\Http\Controllers\Web\NotificationController::class, 'index'], [$auth]);
 
@@ -235,6 +255,9 @@ $router->get('/admin', [AdminDashboard::class, 'index'], [$auth, $admin, $stepup
 // Statistiche
 $router->get('/admin/statistiche', [AdminStats::class, 'index'], [$auth, $admin, $stepup]);
 
+// Analytics d'uso (M4) — lettura on-demand degli eventi instrumentati
+$router->get('/admin/analytics', [AdminAnalytics::class, 'index'], [$auth, $admin, $stepup]);
+
 // Utenti
 $router->get('/admin/utenti', [AdminUsers::class, 'index'], [$auth, $admin, $stepup]);
 $router->get('/admin/utenti/{id}', [AdminUsers::class, 'show'], [$auth, $admin, $stepup]);
@@ -243,6 +266,12 @@ $router->post('/admin/utenti/{id}/riattiva', [AdminUsers::class, 'reactivate'], 
 $router->post('/admin/utenti/{id}/verifica', [AdminUsers::class, 'verifyEmail'], [$auth, $admin, $stepup, $csrf]);
 $router->post('/admin/utenti/{id}/ruolo', [AdminUsers::class, 'changeRole'], [$auth, $admin, $stepup, $csrf]);
 $router->post('/admin/utenti/{id}/verifica-profilo', [AdminUsers::class, 'verifyProfile'], [$auth, $admin, $stepup, $csrf]);
+
+// Verifica PAGINE-org (ancora del badge "verificato dalla società", M3) — by profile_id, disaccoppiata
+// da user_id (una pagina può essere unclaimed). Stessa catena delle altre azioni admin sensibili.
+$router->get('/admin/profili', [AdminProfiles::class, 'index'], [$auth, $admin, $stepup]);
+$router->post('/admin/profili/{id}/verifica', [AdminProfiles::class, 'verify'], [$auth, $admin, $stepup, $csrf]);
+$router->post('/admin/profili/{id}/rimuovi-verifica', [AdminProfiles::class, 'unverify'], [$auth, $admin, $stepup, $csrf]);
 
 // Rivendicazioni (moderazione claim + creazione profili non rivendicati)
 $router->get('/admin/rivendicazioni', [AdminClaims::class, 'index'], [$auth, $admin, $stepup]);
@@ -356,6 +385,19 @@ $router->delete($api . '/me/suggestions/{handle}', [ApiSuggestion::class, 'dismi
 
 // Rivendicazione profilo (solo-Bearer).
 $router->post($api . '/profiles/{handle}/claim', [ApiClaim::class, 'request']);
+
+// Opportunità + candidature. Letture pubbliche (browse/dettaglio = annunci fatti per essere scoperti);
+// SCRITTURE solo-Bearer (acting-context via header X-Acting-Profile). Le rotte /me/* PRIMA di /{id}.
+$router->get($api    . '/opportunities', [ApiOpportunity::class, 'index']);
+$router->post($api   . '/opportunities', [ApiOpportunity::class, 'create']);
+$router->get($api    . '/me/opportunities', [ApiOpportunity::class, 'mine']);
+$router->get($api    . '/me/applications', [ApiOpportunity::class, 'myApplications']);
+$router->get($api    . '/opportunities/{id}', [ApiOpportunity::class, 'show']);
+$router->post($api   . '/opportunities/{id}/close', [ApiOpportunity::class, 'close']);
+$router->get($api    . '/opportunities/{id}/applications', [ApiOpportunity::class, 'applications']);
+$router->post($api   . '/opportunities/{id}/applications', [ApiOpportunity::class, 'apply']);
+$router->post($api   . '/applications/{id}/accept', [ApiOpportunity::class, 'accept']);
+$router->post($api   . '/applications/{id}/reject', [ApiOpportunity::class, 'reject']);
 
 // Realtime Phase 1 — stream consolidato (lettura; sessione web O Bearer native) + device-token (Bearer).
 $router->get($api    . '/stream/since', [ApiStream::class, 'since']);

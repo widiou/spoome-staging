@@ -117,6 +117,21 @@ final class ProfilePresenter
             'affiliations' => array_map([self::class, 'affiliation'], $core['militanza']),
             // Post del profilo: già in forma pubblica (FeedPresenter::item) → passthrough.
             'posts' => $core['profilePosts'],
+            // M3 Verification: stato di verifica esplicito. `staff` = badge ufficiale Spoome (verified_at);
+            // `club` = badge DERIVATO "verificato dalla società" (affiliazione confermata verso org verificata),
+            // mostrato quando NON già staff-verified. `club_by` = provenienza (le org-ancora) per trasparenza —
+            // esposta anche se staff ha precedenza sul badge. Il campo top-level `verified` (staff) resta per
+            // retro-compatibilità.
+            'verification' => [
+                'staff'   => (bool) $core['clubVerification']['staff'],
+                'club'    => (bool) $core['clubVerification']['club'],
+                'club_by' => array_map(static fn (array $o): array => [
+                    'handle'       => $o['org_handle'],
+                    'display_name' => $o['org_name'],
+                    'is_current'   => (bool) $o['is_current'],
+                    'url'          => Config::absoluteUrl('atleti/' . $o['org_handle']),
+                ], $core['clubVerification']['orgs']),
+            ],
         ];
 
         // Richieste di affiliazione in ingresso: solo per chi può gestire (ruolo ≥ admin) — coerente col web.

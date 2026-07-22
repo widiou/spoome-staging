@@ -9,8 +9,10 @@ $active = $active ?? '';
 $nav = [
     'dashboard'  => ['url' => 'admin',            'icon' => 'fa-gauge-high',      'label' => t('admin.nav.dashboard')],
     'stats'      => ['url' => 'admin/statistiche', 'icon' => 'fa-chart-line',      'label' => t('admin.nav.stats')],
+    'analytics'  => ['url' => 'admin/analytics',   'icon' => 'fa-chart-simple',    'label' => t('admin.nav.analytics')],
     'users'      => ['url' => 'admin/utenti',     'icon' => 'fa-users',           'label' => t('admin.nav.users')],
     'claims'     => ['url' => 'admin/rivendicazioni', 'icon' => 'fa-id-badge',    'label' => t('admin.nav.claims')],
+    'profiles'   => ['url' => 'admin/profili',    'icon' => 'fa-building-shield', 'label' => t('admin.nav.profiles')],
     'moderation' => ['url' => 'admin/contenuti',  'icon' => 'fa-flag',            'label' => t('admin.nav.moderation')],
     'news'       => ['url' => 'admin/news',        'icon' => 'fa-rss',             'label' => t('admin.nav.news')],
     'logs'       => ['url' => 'admin/log',        'icon' => 'fa-triangle-exclamation', 'label' => t('admin.nav.logs')],
