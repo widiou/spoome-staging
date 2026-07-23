@@ -9,6 +9,7 @@ use Spoome\Domain\Connections\ConnectionRepository;
 use Spoome\Domain\Connections\ConnectionService;
 use Spoome\Domain\Feed\FeedService;
 use Spoome\Domain\Follows\FollowRepository;
+use Spoome\Domain\Opportunities\OpportunityRepository;
 
 /**
  * Costruttore del read-model della pagina pubblica del profilo (`/atleti/{handle}` e canonici per tipo).
@@ -37,6 +38,7 @@ final class ProfilePageService
     private ConnectionService $connections;
     private FeedService $feed;
     private RecommendationService $recos;
+    private OpportunityRepository $opportunities;
 
     public function __construct(
         ?ProfileDetailsRepository $details = null,
@@ -50,7 +52,8 @@ final class ProfilePageService
         ?ActingContext $acting = null,
         ?ConnectionService $connections = null,
         ?FeedService $feed = null,
-        ?RecommendationService $recos = null
+        ?RecommendationService $recos = null,
+        ?OpportunityRepository $opportunities = null
     ) {
         $this->details      = $details ?? new ProfileDetailsRepository();
         $this->follows      = $follows ?? new FollowRepository();
@@ -64,6 +67,7 @@ final class ProfilePageService
         $this->connections  = $connections ?? new ConnectionService($this->connRepo);
         $this->feed         = $feed ?? new FeedService();
         $this->recos        = $recos ?? new RecommendationService();
+        $this->opportunities = $opportunities ?? new OpportunityRepository();
     }
 
     /**
@@ -87,7 +91,17 @@ final class ProfilePageService
             $profile['sport_name'] ?? null,
             $c['location'],
         ]);
-        $ogImageRel = $profile['cover_path'] ?? ($profile['avatar_path'] ?? null);
+
+        // M5 · og:image: card social COMPOSTA (nome, tipo, sport, badge di verifica), non l'avatar grezzo.
+        // URL versionato dalla FIRMA dello stato mostrato → invalidazione content-addressed e race-free:
+        // se cambiano i dati, cambia la firma → cambia l'URL (i crawler rifanno il fetch) e la chiave di
+        // cache. La firma riusa lo stato già calcolato in collect() (clubVerification) → nessuna query extra
+        // nel percorso SEO caldo. La generazione vera avviene nell'endpoint /og/atleti/{handle}.png.
+        // Club-verified nella firma SOLO per atleti (non org): identico al calcolo dell'endpoint
+        // (OgImageService) → firme identiche ai due lati (l'org non mostra mai il badge "da società").
+        $ogClub  = empty($profile['is_organization']) && (bool) $c['clubVerification']['club'];
+        $ogSig   = \Spoome\Domain\Og\OgCardData::signature($profile, $ogClub);
+        $ogImage = Config::absoluteUrl('og/atleti/' . \rawurlencode((string) $profile['handle']) . '.png') . '?v=' . $ogSig;
 
         return [
             'title'        => $name . ' · ' . Config::appName(),
@@ -98,7 +112,7 @@ final class ProfilePageService
             'location'     => $c['location'],
             'canonical'    => Config::absoluteUrl($c['canonicalPath']),
             'ogType'       => 'profile',
-            'ogImage'      => $ogImageRel ? Config::absoluteUrl((string) $ogImageRel) : null,
+            'ogImage'      => $ogImage,
             'experiences'  => $c['experiences'],
             'achievements' => $c['achievements'],
             'links'        => $c['links'],
@@ -121,6 +135,7 @@ final class ProfilePageService
             'profilePosts' => $c['profilePosts'],
             'myHandle'     => $c['myHandle'],
             'insights'     => $c['insights'],
+            'onboardingBanner' => $c['onboardingBanner'],
         ];
     }
 
@@ -284,6 +299,21 @@ final class ProfilePageService
             ];
         }
 
+        // Onboarding (R-Moat M5, #45) · banner di RIPRESA non intrusivo (mai un modale) per chi ha
+        // abbandonato il flusso a metà. Calcolato SOLO per il proprietario (query extra rara, non su
+        // ogni vista pubblica). Atleta: manca la città (unico campo reso obbligatorio dallo step 2).
+        // Org: pagina verificata ma ancora zero opportunità pubblicate (non ha completato lo step 3).
+        $onboardingBanner = null;
+        if ($canManage) {
+            if (!empty($profile['is_organization'])) {
+                if ($staffVerified && $this->opportunities->listForOrg($pid, 1, 1)['total'] === 0) {
+                    $onboardingBanner = 'org_first_opportunity';
+                }
+            } elseif (trim((string) ($profile['location_city'] ?? '')) === '') {
+                $onboardingBanner = 'athlete_complete';
+            }
+        }
+
         return [
             // Identità/target + campi condivisi con la decorazione SEO
             'profile'      => $profile,
@@ -320,6 +350,7 @@ final class ProfilePageService
             // Post + insight proprietari
             'profilePosts' => $profilePosts,
             'insights'     => $insights,
+            'onboardingBanner' => $onboardingBanner,
         ];
     }
 

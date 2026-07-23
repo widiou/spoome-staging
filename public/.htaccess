@@ -13,11 +13,16 @@ LimitRequestBody 10485760
     Header always set Cross-Origin-Opener-Policy "same-origin"
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'; upgrade-insecure-requests"
 
-    # Default: no-store (protegge le pagine dinamiche/autenticate).
-    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    # L'og:image (/og/…) gestisce da sé il Cache-Control (lungo sulle card reali, no-store sui ripieghi):
+    # escluso dal default no-store e dalla regola asset-immutable (evita che un ripiego resti cachato 1 anno).
+    SetEnvIf Request_URI "/og/" SPOOME_OG
+
+    # Default: no-store (protegge le pagine dinamiche/autenticate). Non per /og/.
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=!SPOOME_OG
     # Asset statici versionati (?v=filemtime): far-future immutable. La regola per-estensione
-    # sovrascrive il default solo per gli asset, indipendentemente dal path/docroot.
+    # sovrascrive il default solo per gli asset, indipendentemente dal path/docroot. Esclude /og/ (vedi sopra).
     SetEnvIf Request_URI "\.(css|js|woff2?|ttf|eot|png|jpe?g|gif|svg|webp|ico|map)$" SPOOME_ASSET
+    SetEnvIf Request_URI "/og/" !SPOOME_ASSET
     Header always set Cache-Control "public, max-age=31536000, immutable" env=SPOOME_ASSET
     Header always unset Pragma env=SPOOME_ASSET
     Header always unset Expires env=SPOOME_ASSET

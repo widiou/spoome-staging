@@ -28,14 +28,20 @@ LimitRequestBody 10485760
     # spoome.it con la PRODUZIONE → una policy HSTS varrebbe per tutto il dominio. Va deciso a livello
     # di dominio insieme alla prod.
 
-    # Default: no-store (protegge le pagine dinamiche/autenticate dalla cache di browser e proxy).
-    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
+    # L'og:image (/og/…) gestisce da sé il Cache-Control (lungo sulle card reali, no-store sui ripieghi):
+    # va escluso SIA dal default no-store SIA dalla regola asset-immutable, altrimenti un ripiego (brand-card
+    # su errore transitorio / profilo non ancora pubblico) resterebbe cachato 1 anno sull'URL versionato.
+    SetEnvIf Request_URI "/og/" SPOOME_OG
+
+    # Default: no-store (protegge le pagine dinamiche/autenticate dalla cache di browser e proxy). Non per /og/.
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=!SPOOME_OG
+    Header set Pragma "no-cache" env=!SPOOME_OG
+    Header set Expires "0" env=!SPOOME_OG
 
     # Asset statici versionati (?v=filemtime): far-future immutable. La regola per-estensione
-    # sovrascrive il default SOLO per gli asset — l'HTML dinamico resta no-store.
+    # sovrascrive il default SOLO per gli asset — l'HTML dinamico resta no-store. Esclude /og/ (vedi sopra).
     SetEnvIf Request_URI "\.(css|js|woff2?|ttf|eot|png|jpe?g|gif|svg|webp|ico|map)$" SPOOME_ASSET
+    SetEnvIf Request_URI "/og/" !SPOOME_ASSET
     Header always set Cache-Control "public, max-age=31536000, immutable" env=SPOOME_ASSET
     Header unset Pragma env=SPOOME_ASSET
     Header unset Expires env=SPOOME_ASSET

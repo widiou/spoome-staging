@@ -1,7 +1,12 @@
 <?php
 /**
  * Form di pubblicazione opportunità (solo org). @var array $sports @var array $kinds @var array|null $notice
+ * @var int|null $prefillSportId @var string $prefillRegion @var string $prefillCity prefill di visualizzazione
+ * (R-Moat M5, #45 — onboarding Società step 3): valori solo-display, la validazione resta in OpportunityService.
  */
+$prefillSportId = $prefillSportId ?? null;
+$prefillRegion  = $prefillRegion ?? '';
+$prefillCity    = $prefillCity ?? '';
 ?>
 <main class="site-main">
     <section class="container narrow">
@@ -36,7 +41,7 @@
                 <select name="sport_id">
                     <option value=""><?= e(t('opp.f.sport_none')) ?></option>
                     <?php foreach ($sports as $s): ?>
-                        <option value="<?= e($s['id']) ?>"><?= e($s['name']) ?></option>
+                        <option value="<?= e($s['id']) ?>" <?= $prefillSportId === (int) $s['id'] ? 'selected' : '' ?>><?= e($s['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
@@ -44,11 +49,11 @@
             <div class="field-row">
                 <label class="field">
                     <span class="field-label"><?= e(t('opp.f.region')) ?></span>
-                    <input type="text" name="location_region" maxlength="80" autocomplete="off">
+                    <input type="text" name="location_region" maxlength="80" autocomplete="off" value="<?= e($prefillRegion) ?>">
                 </label>
                 <label class="field">
                     <span class="field-label"><?= e(t('opp.f.city')) ?></span>
-                    <input type="text" name="location_city" maxlength="120" autocomplete="off">
+                    <input type="text" name="location_city" maxlength="120" autocomplete="off" value="<?= e($prefillCity) ?>">
                 </label>
             </div>
 
